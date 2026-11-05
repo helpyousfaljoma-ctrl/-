@@ -1,0 +1,11 @@
+leap-voice/_seg/
+leap-voice/_*.wav
+leap-voice/fast112.wav
+leap-voice/voice_orig_48k.wav
+leap-voice/film/renders/frames/
+leap-voice/film/renders/preview/
+leap-voice/film/renders/audio/
+leap-voice/film/vo/
+__pycache__/
+leap-voice/film/renders/render.log
+leap-voice/voice_paced.wav

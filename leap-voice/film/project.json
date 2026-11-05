@@ -1,0 +1,13 @@
+{
+ "name": "LEAP — اللي بتقول عليه عادي",
+ "fps": 60, "width": 1080, "height": 1920,
+ "bpm": 96, "beatsPerBar": 4, "beatOffset": 0,
+ "palette": { "bg": "#0C3B3A", "ink": "#EEF4F3", "acc": "#F08A7C", "clay": "#E4604F", "hi": "#6FC3B3", "mut": "#B7CFCB",
+              "tint": "#1D5250", "deep": "#082E2D", "line": "#1F4846", "growth": "#6FC3B3", "onAcc": "#0C2F2E" },
+ "fonts": { "display": "Readex Pro", "body": "IBM Plex Sans Arabic", "num": "Readex Pro" },
+ "post": { "grain": 0.025, "vignette": 0.18 },
+ "timing": { "keepOriginal": true, "snap": "none", "leadIn": 0, "gap": 0, "startPad": 0, "tail": 1.6 },
+ "motionBlur": { "samples": 6, "shutter": 0.5, "transitions": false, "ranges": [] },
+ "sections": [ { "name": "intro", "at": 0 }, { "name": "build", "at": "line:l5" }, { "name": "break", "at": "line:l11" }, { "name": "drop", "at": "line:l15" }, { "name": "outro", "at": "line:l17" } ],
+ "scenes": [ { "id": "s1", "file": "scenes/s1.js", "lines": ["l1","l2","l3","l4","l5","l6","l7","l8","l9","l10","l11","l12","l13","l14","l15","l16","l17"] } ]
+}
