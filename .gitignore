@@ -9,3 +9,4 @@ leap-voice/film/vo/
 __pycache__/
 leap-voice/film/renders/render.log
 leap-voice/voice_paced.wav
+leap-voice/film/renders/
