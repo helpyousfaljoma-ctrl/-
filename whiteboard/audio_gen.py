@@ -1,5 +1,5 @@
 import json,sys,numpy as np,soundfile as sf
-d=sys.argv[1]; SR=48000; DUR=34.0; N=int(SR*DUR); rng=np.random.default_rng(3)
+d=sys.argv[1]; SR=48000; DUR=float(sys.argv[2]); N=int(SR*DUR); rng=np.random.default_rng(3)
 t=np.arange(N)/SR
     # vectorised one-pole via lfilter-like loop in chunks
 # ---------- music ----------
@@ -29,7 +29,7 @@ for b in range(int(DUR/bar)+1):
 fade=np.minimum(1,t/1.5)*np.minimum(1,np.maximum(0,(DUR-t)/1.8))
 mus*=fade
 # ---------- marker sfx ----------
-tl=json.load(open(d+'/timeline.json')); sfx=np.zeros(N)
+TL=json.load(open(d+'/timeline.json'));tl=TL['els']; sfx=np.zeros(N)
 noise=rng.standard_normal(N)
 # band-pass ~1.5-6k: highpass by subtracting lowpass, done once with simple FIR approx
 from numpy.fft import rfft,irfft,rfftfreq
@@ -42,7 +42,7 @@ for e in tl:
     env=np.minimum(1,tt/0.02)*np.minimum(1,(tt[-1]-tt+1e-4)/0.03)
     sfx[j0:j1]+=0.10*bn[j0:j1]*mod*env
 # whooshes at scene changes
-for s in [4.62,8.80,11.39,15.44,20.68,25.91]:
+for s in TL['scenes'][1:]:
     j0=int(s*SR); L=int(0.4*SR); tt=np.arange(L)/SR; env=np.sin(np.pi*tt/0.4)**2
     F2=rfft(rng.standard_normal(L)); fr2=rfftfreq(L,1/SR); F2*=np.exp(-fr2/1500); w=irfft(F2,L); w/=np.abs(w).max()
     sfx[j0:j0+L]+=0.18*w*env

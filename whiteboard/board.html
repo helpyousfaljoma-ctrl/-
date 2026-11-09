@@ -17,7 +17,7 @@ svg{position:absolute;inset:0}
  <defs id="defs"></defs>
  <g id="world"></g>
  <g id="hand" style="display:none">
-  <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="-14" dy="22" stdDeviation="16" flood-color="#000" flood-opacity=".22"/></filter>
+  <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow id="shd" dx="-14" dy="22" stdDeviation="16" flood-color="#000" flood-opacity=".22"/></filter>
   <g id="handInner" filter="url(#sh)">
    <!-- marker (behind hand); tip at (40,560), axis toward (700,900) -->
    <g transform="translate(40,560) rotate(27.2)">
@@ -61,15 +61,20 @@ function curve(pts,n=24){ // catmull-rom through pts
    for(let k=0;k<n;k++){const t=k/n,t2=t*t,t3=t2*t;o.push([0,1].map(j=>0.5*((2*p1[j])+(-p0[j]+p2[j])*t+(2*p0[j]-5*p1[j]+4*p2[j]-p3[j])*t2+(-p0[j]+3*p1[j]-3*p2[j]+p3[j])*t3)))}}
   o.push(pts[pts.length-1]);return o}
 // ---------- timeline ----------
+const OLDC=[[0.048, 1.759], [2.003, 2.601], [2.843, 4.596], [4.899, 5.7], [5.931, 6.706], [6.974, 8.778], [9.073, 9.796], [10.013, 11.367], [11.638, 12.761], [12.943, 14.018], [14.173, 15.416], [15.657, 16.131], [16.305, 17.765], [18.047, 19.654], [19.906, 20.655], [20.918, 21.765], [21.949, 23.085], [23.375, 24.515], [24.724, 25.891], [26.218, 27.738], [27.968, 29.66], [29.889, 32.965]],NEWC=[[0.049, 1.808], [2.06, 2.676], [2.919, 4.724], [5.027, 5.846], [6.077, 6.87], [7.138, 8.998], [9.293, 10.031], [10.253, 11.649], [11.92, 13.076], [13.264, 14.367], [14.526, 15.798], [16.039, 16.524], [16.702, 18.197], [18.478, 20.126], [20.378, 21.147], [21.41, 22.28], [22.47, 23.643], [23.933, 25.107], [25.317, 26.516], [26.843, 28.412], [28.649, 30.379], [30.613, 33.756]];
+const MP=[[0,0]];OLDC.forEach((c,i)=>{MP.push([c[0],NEWC[i][0]]);MP.push([c[1],NEWC[i][1]])});
+function M(t){if(t<=0)return t;for(let i=1;i<MP.length;i++){if(t<=MP[i][0]){const a=MP[i-1],b=MP[i];return a[1]+(t-a[0])*(b[1]-a[1])/((b[0]-a[0])||1)}}const l=MP[MP.length-1];return t-l[0]+l[1]}
 const scenes=[]; let cur=null; const ELS=[];
-function scene(t0,t1){cur={t0,t1,g:null,els:[]};scenes.push(cur)}
-function stroke(pts,t0,dur,o={}){const e={k:'p',pts:o.raw?pts:rough(pts,o.amp??1.7),t0,dur,c:o.c||INK,w:o.w||7,op:o.op||1,sc:cur,grp:o.grp};cur.els.push(e);ELS.push(e);return e}
-function seq(list,t0,t1,o={}){ // list of pts arrays; split time by length
-  const lens=list.map(p=>{let s=0;for(let i=1;i<p.length;i++)s+=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]);return Math.max(s,30)});
-  const tot=lens.reduce((a,b)=>a+b,0); const gap=Math.min(0.04,(t1-t0)*0.15/list.length); const avail=(t1-t0)-gap*(list.length-1);
-  let t=t0; list.forEach((p,i)=>{const d=avail*lens[i]/tot; stroke(p,t,d,o); t+=d+gap});
+function scene(t0,t1){t0=M(t0);t1=M(t1);cur={t0,t1,g:null,els:[]};scenes.push(cur)}
+function stroke(pts,t0,dur,o={}){const _a=M(t0);dur=M(t0+dur)-_a;t0=_a;const e={k:'p',pts:o.raw?pts:rough(pts,o.amp??1.7),t0,dur,c:o.c||INK,w:o.w||7,op:o.op||1,sc:cur,grp:o.grp};cur.els.push(e);ELS.push(e);return e}
+function plen(p){let s=0;for(let i=1;i<p.length;i++)s+=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]);return s}
+function seq(list,t0,t1,o={}){ // split the window between drawing (by length) and hand travel between strokes (by distance)
+  const dw=list.map(p=>Math.max(plen(p),30)/1800);
+  const tw=list.slice(0,-1).map((p,i)=>{const A=p[p.length-1],B=list[i+1][0];return 0.05+Math.hypot(B[0]-A[0],B[1]-A[1])/2200});
+  const k=(t1-t0)/(dw.reduce((a,b)=>a+b,0)+tw.reduce((a,b)=>a+b,0));
+  let t=t0; list.forEach((p,i)=>{const d=dw[i]*k; stroke(p,t,d,o); t+=d+(tw[i]||0)*k});
 }
-function text(str,x,y,size,t0,t1,o={}){const e={k:'t',str,x,y,size,t0,dur:t1-t0,c:o.c||INK,font:o.font||'Lalezar',ltr:o.ltr,rot:o.rot||0,sc:cur,grp:o.grp};cur.els.push(e);ELS.push(e);return e}
+function text(str,x,y,size,t0,t1,o={}){t0=M(t0);t1=M(t1);const e={k:'t',str,x,y,size,t0,dur:t1-t0,c:o.c||INK,font:o.font||'Lalezar',ltr:o.ltr,rot:o.rot||0,sc:cur,grp:o.grp};cur.els.push(e);ELS.push(e);return e}
 function arrow(x1,y1,x2,y2,t0,t1,o={}){const a=Math.atan2(y2-y1,x2-x1),h=38;
   seq([curve([[x1,y1],[(x1+x2)/2,(y1+y2)/2-18],[x2,y2]]),[[x2+Math.cos(a+2.6)*h,y2+Math.sin(a+2.6)*h],[x2,y2],[x2+Math.cos(a-2.6)*h,y2+Math.sin(a-2.6)*h]]],t0,t1,o)}
 // figures
@@ -79,15 +84,16 @@ function person(cx,y0,t0,t1,o={}){ // y0 = head center
   else seq(L2,t0,t1,o);
 }
 function pillar(cx,top,bot,w,t0,t1,o={}){
-  seq([rect(cx-w/2-22,top,w+44,30),[[cx-w/2,top+30],[cx-w/2,bot-30]],[[cx+w/2,top+30],[cx+w/2,bot-30]],
-       [[cx-w/6,top+50],[cx-w/6,bot-50]],[[cx+w/6,top+50],[cx+w/6,bot-50]],rect(cx-w/2-30,bot-30,w+60,30)],t0,t1,o)}
-function coin(cx,cy,r,t0,t1,o={}){seq([circ(cx,cy,r),circ(cx,cy,r*0.62,-1.2,1.02)],t0,t1,{c:o.c||INK,w:6,grp:o.grp})}
-function bill(x,y,t0,t1){seq([rect(x,y,200,105),circ(x+100,y+52,28,-1.5,1.05),[[x+22,y+22],[x+22,y+83]],[[x+178,y+22],[x+178,y+83]]],t0,t1,{w:6})}
+  const L=[rect(cx-w/2-22,top,w+44,30),[[cx-w/2,top+30],[cx-w/2,bot-30]],[[cx+w/2,top+30],[cx+w/2,bot-30]]];
+  if(!o.simple)L.push([[cx-w/6,top+50],[cx-w/6,bot-50]],[[cx+w/6,top+50],[cx+w/6,bot-50]]);
+  L.push(rect(cx-w/2-30,bot-30,w+60,30));seq(L,t0,t1,o)}
+function coin(cx,cy,r,t0,t1,o={}){seq([circ(cx,cy,r,-1.9,1.04)],t0,t1,{c:o.c||INK,w:7,grp:o.grp})}
+function bill(x,y,t0,t1){seq([rect(x,y,200,105),circ(x+100,y+52,28,-1.5,1.05)],t0,t1,{w:6})}
 
 // ================= SCENES (times from voiceover chunks) =================
 // S1 0 - 4.62
 scene(0,4.62);
-pillar(540,760,1130,150,0.08,0.82,{grp:'p1'});
+pillar(540,760,1130,150,0.08,0.82,{grp:'p1',simple:1});
 person(540,465,0.82,1.22,{grp:'p1'});
 text('مصدر دخل واحد',540,1265,96,1.22,1.76);
 text('مو آمن!',840,500,92,2.0,2.6,{c:OR,rot:-8});
@@ -97,15 +103,13 @@ text('أزمة!',255,1065,100,3.62,4.5,{c:OR,rot:6});
 // S2 4.62 - 8.80
 scene(4.62,8.80);
 person(285,420,4.9,5.62,{tie:true});
-bill(170,800,5.93,6.25); bill(195,770,6.25,6.5);
+bill(185,790,5.93,6.45);
 text('راتب ممتاز',290,1000,80,6.5,6.95);
-seq([rect(640,420,300,440),[[620,420],[790,330],[960,420]],
-     ...[0,1,2].flatMap(r=>[0,1].map(c=>rect(680+c*140,470+r*110,80,70))),rect(752,780,56,80)],6.97,7.62);
+seq([rect(640,420,300,440),[[620,420],[790,330],[960,420]],rect(752,780,56,80)],6.97,7.62);
 seq([rect(600,945,380,130)],7.62,7.78);
 text('دوام إضافي',790,1045,74,7.78,8.15);
 // scissors + cut
-seq([circ(700,1225,32,0,1.05),circ(780,1225,32,0,1.05),[[715,1195],[860,1060]],[[765,1195],[620,1060]]],8.15,8.55,{c:OR,w:7});
-stroke([[620,935],[960,1085]],8.55,0.22,{c:OR,w:9});
+stroke([[600,925],[700,1010],[640,1030],[980,1095]],8.2,0.5,{c:OR,w:11});
 // S3 8.80 - 11.39
 scene(8.80,11.39);
 seq([rect(380,330,320,270),[[380,400],[700,400]],[[450,305],[450,350]],[[630,305],[630,350]]],9.07,9.45);
@@ -123,9 +127,8 @@ rows.forEach(([y,a,b,s])=>{const d=b-a;
   seq([[[845,y-45],[925,y+35]],[[925,y-45],[845,y+35]]],a+d*0.74,b,{c:OR,w:10});});
 // S5 15.44 - 20.68
 scene(15.44,20.68);
-seq([circ(430,420,38),arc(430,520,62,Math.PI*1.05,Math.PI*1.95),circ(650,420,38),arc(650,520,62,Math.PI*1.05,Math.PI*1.95),[[320,540],[760,540]],[[360,540],[360,620]],[[720,540],[720,620]]],15.62,16.2);
-seq([curve([[735,880],[705,830],[715,770],[780,735],[845,770],[855,830],[825,880]]),[[735,880],[825,880]],[[745,910],[815,910]],[[755,940],[805,940]]],16.3,16.75,{c:OR,w:8});
-seq([[[780,690],[780,650]],[[870,725],[900,700]],[[690,725],[660,700]]],16.75,16.95,{c:OR,w:7});
+seq([circ(430,420,38),arc(430,520,62,Math.PI*1.05,Math.PI*1.95),circ(650,420,38),arc(650,520,62,Math.PI*1.05,Math.PI*1.95),[[320,540],[760,540]]],15.5,16.2);
+seq([curve([[735,880],[705,830],[715,770],[780,735],[845,770],[855,830],[825,880]]),[[735,880],[825,880]],[[750,920],[810,920]]],16.3,16.95,{c:OR,w:8});
 text('مهارة',780,1060,92,16.97,17.72);
 arrow(660,820,450,820,18.05,18.4);
 seq([rect(170,700,230,290),[[200,700],[200,990]],[[230,940],[370,940]]],18.4,18.95);
@@ -139,7 +142,7 @@ stroke([[940,720],[140,720]],21.95,0.2,{w:6});
 [840,640,440,240].forEach((x,i)=>coin(x,720,52,22.15+i*0.22,22.35+i*0.22,{c:OR}));
 text('كل أسبوع',540,860,70,23.02,23.36);
 text('مبلغ صغير بالبداية',540,1005,76,23.4,24.5);
-pillar(720,1070,1300,90,24.72,25.12); pillar(900,1070,1300,90,25.12,25.48);
+pillar(720,1070,1300,90,24.72,25.12,{simple:1}); pillar(900,1070,1300,90,25.12,25.48,{simple:1});
 text('مصدر ثاني',340,1220,90,25.48,25.9,{c:OR});
 // S7 25.91 - end
 scene(25.91,34);
@@ -162,7 +165,7 @@ const CAPS=[[0.048,1.759,'إذا عندك مصدر دخل واحد بس،'],[2.0
 [20.918,21.765,'بناه مرة وحدة،'],[21.949,23.085,'وصار يبيعه كل أسبوع.'],[23.375,24.515,'مو مبلغ كبير بالبداية،'],[24.724,25.891,'بس صار عنده مصدر ثاني.'],
 [26.218,27.738,'إذا ما بدك تضل على راتب واحد،'],[27.968,29.66,'اكتب كلمة أمان بالتعليقات،'],[29.889,32.965,'وببعتلك كيف تحول مهارتك لمنتج رقمي صغير هالأسبوع.']];
 const KEY=['آمن','الأزمة','30%','بديلة','معروضة','جاهز','رقمي','دليل','ثاني','أمان','هالأسبوع','ممتاز','إضافي'];
-CAPS.forEach(c=>{const ws=c[2].split(' ');const tot=ws.reduce((a,w)=>a+w.length+2,0);let t=c[0];
+CAPS.forEach(c=>{c[0]=M(c[0]);c[1]=M(c[1]);const ws=c[2].split(' ');const tot=ws.reduce((a,w)=>a+w.length+2,0);let t=c[0];
   c.words=ws.map(w=>{const d=(c[1]-c[0])*(w.length+2)/tot;const o={w,t0:t,t1:t+d};t+=d;return o})});
 
 // ================= BUILD DOM =================
@@ -189,36 +192,77 @@ function sceneT(s,t){ // returns {tx,s}
   return {tx,z};
 }
 function scr(s,t,x,y){const T=sceneT(s,t);return [CX+(x-CX)*T.z+T.tx, CY+(y-CY)*T.z]}
-function tipAt(e,p,t){ // tip point (scene coords) of element at progress p
+const clamp=u=>u<0?0:u>1?1:u;
+const MJ=u=>{u=clamp(u);return u*u*u*(10-15*u+6*u*u)};           // minimum-jerk reach profile
+function prog(e,t){const u=clamp((t-e.t0)/e.dur);return 0.6*u+0.4*ease(u)} // slow-in / slow-out stroke
+function tipAt(e,p){
   if(e.k==='p'){const q=e.el.getPointAtLength(e.len*p);return [q.x,q.y]}
-  const b=e.bb;const x=e.ltr? b.x+b.w*p : b.x+b.w*(1-p);const y=b.y+b.h*0.55+b.h*0.18*Math.sin(p*b.w/22);
+  const b=e.bb;const ph=p*b.w/20;
+  const x=(e.ltr? b.x+b.w*p : b.x+b.w*(1-p)) + 6*Math.sin(ph*1.9+0.7);
+  const y=b.y+b.h*0.55+b.h*(0.13*Math.sin(ph)+0.06*Math.sin(ph*2.7+1.3));
   const r=e.rot*Math.PI/180;const dx=x-e.x,dy=y-e.y;return [e.x+dx*Math.cos(r)-dy*Math.sin(r), e.y+dx*Math.sin(r)+dy*Math.cos(r)];
 }
-const REST=[1300,2250];
-function handPos(t){
-  const S=ELS.slice().sort((a,b)=>a.t0-b.t0);
-  for(const e of S){if(t>=e.t0&&t<=e.t0+e.dur){const p=ease((t-e.t0)/e.dur*1.0);const pp=(t-e.t0)/e.dur;return scr(e.sc,t,...tipAt(e,e.k==='p'?pp:pp,t))}}
-  let prev=null,next=null;for(const e of S){if(e.t0+e.dur<t)prev=e;else if(e.t0>t){next=e;break}}
-  const pEnd=prev?scr(prev.sc,t,...tipAt(prev,1,t)):REST, pT=prev?prev.t0+prev.dur:-9;
-  const nSt=next?scr(next.sc,t,...tipAt(next,0,t)):REST, nT=next?next.t0:99;
+let SORTED=null;
+const OFF=[1450,2500];
+function bez(a,c,b,u){const v=1-u;return [v*v*a[0]+2*v*u*c[0]+u*u*b[0], v*v*a[1]+2*v*u*c[1]+u*u*b[1]]}
+function travel(A,B,u){ // curved reach with a natural arc bulging down-right (toward the wrist)
+  const dx=B[0]-A[0],dy=B[1]-A[1],d=Math.hypot(dx,dy)||1;let nx=-dy/d,ny=dx/d;if(nx+ny<0){nx=-nx;ny=-ny}
+  const k=Math.min(90,0.16*d+12);const C=[(A[0]+B[0])/2+nx*k,(A[1]+B[1])/2+ny*k];return bez(A,C,B,MJ(u));
+}
+function hover(P){return [Math.min(990,P[0]+120),Math.min(1480,P[1]+150)]}
+function handState(t){
+  if(!SORTED)SORTED=ELS.slice().sort((a,b)=>a.t0-b.t0);
+  for(const e of SORTED){if(t>=e.t0&&t<=e.t0+e.dur)return {p:scr(e.sc,t,...tipAt(e,prog(e,t))),lift:0,draw:1}}
+  let prev=null,next=null;for(const e of SORTED){if(e.t0+e.dur<t)prev=e;else if(e.t0>t){next=e;break}}
+  const pT=prev?prev.t0+prev.dur:-0.6, nT=next?next.t0:t+99;
+  const A=prev?scr(prev.sc,pT,...tipAt(prev,1)):OFF, B=next?scr(next.sc,nT,...tipAt(next,0)):OFF;
   const gap=nT-pT;
-  if(prev&&next&&gap<0.9&&prev.sc===next.sc){const u=ease((t-pT)/gap);return [pEnd[0]+(nSt[0]-pEnd[0])*u,pEnd[1]+(nSt[1]-pEnd[1])*u-Math.sin(u*Math.PI)*30]}
-  const OUT=0.4;
-  if(prev&&t-pT<OUT){const u=ease((t-pT)/OUT);return [pEnd[0]+(REST[0]-pEnd[0])*u,pEnd[1]+(REST[1]-pEnd[1])*u]}
-  if(next&&nT-t<OUT){const u=ease(1-(nT-t)/OUT);return [REST[0]+(nSt[0]-REST[0])*u,REST[1]+(nSt[1]-REST[1])*u]}
-  return REST;
+  if(gap<1.3&&prev&&next){const u=(t-pT)/gap;return {p:travel(A,B,u),lift:Math.sin(Math.PI*clamp(u)),draw:0}}
+  // long pause: lift away a little, idle, then come back (or leave the frame at the very start/end)
+  const H=prev?hover(A):OFF, H2=next?hover(B):OFF; const T1=0.5,T2=0.55;
+  const idle=[9*Math.sin(t*1.3)+5*Math.sin(t*2.9+1),7*Math.sin(t*1.7+0.5)];
+  if(t-pT<T1){const q=travel(A,H,(t-pT)/T1);return {p:q,lift:MJ((t-pT)/T1),draw:0}}
+  if(nT-t<T2){const st=prev?[H[0]+idle[0],H[1]+idle[1]]:OFF;const q=travel(st,B,1-(nT-t)/T2);return {p:q,lift:1-MJ(1-(nT-t)/T2),draw:0}}
+  if(!next&&prev&&t>pT+1.2){const u=(t-pT-1.2)/0.7;return {p:travel(H,OFF,u),lift:1,draw:0}}
+  return {p:prev?[H[0]+idle[0],H[1]+idle[1]]:OFF,lift:1,draw:0};
+}
+function schedScene(sc,limit,f,minStart){
+  const VD=2600*f, VT=4200*Math.sqrt(f), VTXT=1400*f;let prevEnd=-1,prevPt=null,lag=0;
+  sc.els.slice().sort((a,b)=>a.o0-b.o0).forEach(e=>{const L=e.k==='p'?e.len:e.bb.w;const minD=Math.max(0.06,L/(e.k==='p'?VD:VTXT));
+    const st=tipAt(e,0);const trav=prevPt?(0.06+Math.hypot(st[0]-prevPt[0],st[1]-prevPt[1])/VT):0;
+    const dEnd=e.o0+e.od;const start=Math.max(e.o0-0.4,minStart,prevEnd+trav);const dur=Math.max(minD,dEnd-start);
+    e.t0=start;e.dur=dur;prevEnd=start+dur;prevPt=tipAt(e,1);lag=Math.max(lag,prevEnd-dEnd);});
+  return prevEnd<=limit&&lag<=0.28;
+}
+function fixGaps(){ // natural-speed scheduler; a crowded scene is sped up just enough to fit its time
+  window.SPEED=[];
+  scenes.forEach((sc,si)=>{sc.els.forEach(e=>{e.o0=e.t0;e.od=e.dur});
+    const limit=Math.max((scenes[si+1]?scenes[si+1].t0:99)+0.1,...sc.els.map(e=>e.t0+e.dur));let f=1;
+    const ms=si>0?sc.t0+0.32:0.02;while(!schedScene(sc,limit,f,ms)&&f<3.6)f*=1.05;window.SPEED.push(+f.toFixed(2));
+    const lastEnd=Math.max(...sc.els.map(e=>e.t0+e.dur));const nx=scenes[si+1];if(nx&&nx.t0<lastEnd+0.05){nx.t0=lastEnd+0.05;}});
+  SORTED=null;
+}
+const ANCH=[1350,2400],REFA=Math.atan2(ANCH[1]-820,ANCH[0]-540);
+let LROT=null;
+function handTransform(t){
+  const st=handState(t);const [x,y]=st.p;
+  let rot=(Math.atan2(ANCH[1]-y,ANCH[0]-x)-REFA)*180/Math.PI*0.7;
+  rot+=st.draw?(0.7*Math.sin(t*31)+0.5*Math.sin(t*19+1)):1.4*Math.sin(t*1.1+0.4);
+  const sc=0.46*(1+0.05*st.lift);
+  const sh=document.getElementById('shd');if(sh){sh.setAttribute('dx',(-14-12*st.lift).toFixed(1));sh.setAttribute('dy',(22+18*st.lift).toFixed(1));sh.setAttribute('stdDeviation',(15+7*st.lift).toFixed(1));sh.setAttribute('flood-opacity',(0.24-0.06*st.lift).toFixed(2))}
+  return `translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${rot.toFixed(2)}) scale(${sc.toFixed(4)}) translate(-40,-560)`;
 }
 const capEl=document.getElementById('cap');let capIdx=-1;
 function renderAt(t){
   scenes.forEach((s,i)=>{const nx=scenes[i+1];const vis=t>=s.t0-0.01&&(!nx||t<nx.t0+0.32);s.g.style.display=vis?'':'none';
     const T=sceneT(s,t);s.g.setAttribute('transform',`translate(${T.tx},0) translate(${CX},${CY}) scale(${T.z}) translate(${-CX},${-CY})`);
     s.els.forEach(e=>{const p=Math.min(1,Math.max(0,(t-e.t0)/e.dur));
-      if(e.k==='p')e.el.style.strokeDashoffset=e.len*(1-p);
-      else {const w=e.bb.w*p; e.clip.setAttribute('width',w); e.clip.setAttribute('x',e.ltr?e.bb.x:e.bb.x+e.bb.w-w);}});
+      const pe=e.dur>0?prog(e,t):p;if(e.k==='p')e.el.style.strokeDashoffset=e.len*(1-pe);
+      else {const w=e.bb.w*pe; e.clip.setAttribute('width',w); e.clip.setAttribute('x',e.ltr?e.bb.x:e.bb.x+e.bb.w-w);}});
     // pillar tilt in scene 1
-    if(i===0&&s.grps.p1){const a=-7*ease((t-3.28)/0.5);s.grps.p1.setAttribute('transform',`rotate(${a} 540 1130)`)}
+    if(i===0&&s.grps.p1){const a=-7*ease((t-M(3.28))/0.5);s.grps.p1.setAttribute('transform',`rotate(${a} 540 1130)`)}
   });
-  const hp=handPos(t);const h=document.getElementById('hand');h.style.display='';const rot=2.5*Math.sin(t*1.7);h.setAttribute('transform',`translate(${hp[0].toFixed(1)},${hp[1].toFixed(1)}) rotate(${rot.toFixed(2)}) scale(0.46) translate(-40,-560)`);
+  const h=document.getElementById('hand');h.style.display='';h.setAttribute('transform',handTransform(t));
   // captions
   let ci=-1;CAPS.forEach((c,i)=>{if(t>=c[0]-0.05)ci=i});
   if(ci>=0&&CAPS[ci+1]===undefined&&t>CAPS[ci][1]+1.5)ci=-1;
@@ -228,7 +272,7 @@ function renderAt(t){
     o.el.style.opacity=st===0?0:ap; o.el.style.color=(st===2||key)?OR:INK;
     o.el.style.transform=`translateY(${(1-ap)*14}px) scale(${st===2?1.07:1})`;});
 }
-window.TIMELINE=()=>ELS.map(e=>({k:e.k,t0:e.t0,dur:e.dur}));
-window.ready=Promise.all([document.fonts.load('96px Lalezar','مصدر'),document.fonts.load('800 60px Cairo','مصدر')]).then(()=>document.fonts.ready).then(()=>{build();renderAt(0);return true});
+window.TIMELINE=()=>({els:ELS.map(e=>({k:e.k,t0:e.t0,dur:e.dur})),scenes:scenes.map(s=>s.t0)});
+window.ready=Promise.all([document.fonts.load('96px Lalezar','مصدر'),document.fonts.load('800 60px Cairo','مصدر')]).then(()=>document.fonts.ready).then(()=>{build();fixGaps();renderAt(0);return true});
 window.renderAt=renderAt;
 </script></body></html>
