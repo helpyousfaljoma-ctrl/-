@@ -1,0 +1,1 @@
+tex/grain*.png are generated (see README)
