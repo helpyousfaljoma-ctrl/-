@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Lalezar;src:url(fonts/Lalezar.ttf)}
+@font-face{font-family:Cairo;src:url(fonts/Cairo.ttf);font-weight:800}
+html,body{margin:0;padding:0;width:1080px;height:1920px;overflow:hidden;background:#fbfaf6}
+#board{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 40%,#ffffff 0%,#fbfaf6 60%,#efede6 100%)}
+svg{position:absolute;inset:0}
+#cap{position:absolute;left:50%;top:1395px;transform:translateX(-50%);max-width:900px;width:max-content;padding:10px 34px 16px;border-radius:30px;
+ background:rgba(255,255,255,.94);box-shadow:0 6px 24px rgba(0,0,0,.10);display:flex;flex-wrap:wrap;justify-content:center;gap:0 16px;z-index:5;
+ font-family:Cairo;font-weight:800;font-size:58px;line-height:1.45;color:#1d1d1f;direction:rtl}
+#cap:empty{display:none}
+#cap span{display:inline-block;transition:none}
+</style></head><body>
+<div id="board"></div>
+<svg id="svg" width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
+ <defs id="defs"></defs>
+ <g id="world"></g>
+ <g id="hand" style="display:none">
+  <filter id="sh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="-14" dy="22" stdDeviation="16" flood-color="#000" flood-opacity=".22"/></filter>
+  <g id="handInner" filter="url(#sh)">
+   <!-- marker (behind hand); tip at (40,560), axis toward (700,900) -->
+   <g transform="translate(40,560) rotate(27.2)">
+    <path d="M0,0 L34,-16 L34,16 Z" fill="#1d1d1f"/>
+    <rect x="30" y="-24" width="70" height="48" rx="6" fill="#d9d9d9" stroke="#222" stroke-width="5"/>
+    <rect x="96" y="-34" width="700" height="68" rx="16" fill="#f5f5f5" stroke="#222" stroke-width="5"/>
+    <rect x="96" y="-34" width="700" height="18" rx="9" fill="#fff" opacity=".8"/>
+   </g>
+   <image href="hand.png" x="0" y="0" width="1496" height="1995"/>
+   <!-- sleeve -->
+   <path d="M640,1905 C900,1800 1250,1700 1560,1640 L2600,3600 L1500,3900 Z" fill="#26476b" stroke="#16283c" stroke-width="6"/>
+   <path d="M640,1905 C900,1800 1250,1700 1560,1640 L1600,1730 C1290,1790 950,1885 690,1995 Z" fill="#1e3a59" stroke="#16283c" stroke-width="6"/>
+  </g>
+ </g>
+</svg>
+<div id="cap"></div>
+<script>
+const INK='#1d1d1f', OR='#F26B1D', HL='#FFC48A';
+const W=1080,H=1920, CX=540, CY=820;
+// ---------- rng / roughen ----------
+let seed=7; function rnd(){seed=(seed*16807)%2147483647;return (seed-1)/2147483646}
+function rough(pts,amp=1.7,step=16){
+  const out=[]; const ph=[rnd()*6.28,rnd()*6.28,rnd()*6.28]; let s=0;
+  for(let i=0;i<pts.length-1;i++){
+    const [x1,y1]=pts[i],[x2,y2]=pts[i+1]; const L=Math.hypot(x2-x1,y2-y1); const n=Math.max(1,Math.round(L/step));
+    const nx=-(y2-y1)/(L||1), ny=(x2-x1)/(L||1);
+    for(let k=0;k<n;k++){const u=k/n; s+=L/n;
+      const o=amp*(Math.sin(s/37+ph[0])*0.6+Math.sin(s/13+ph[1])*0.3+Math.sin(s/71+ph[2])*0.6);
+      out.push([x1+(x2-x1)*u+nx*o, y1+(y2-y1)*u+ny*o]);}
+  }
+  out.push(pts[pts.length-1]); return out;
+}
+function toD(p){return 'M'+p.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' L')}
+// shapes -> point lists
+const L=(x1,y1,x2,y2)=>[[x1,y1],[x2,y2]];
+const rect=(x,y,w,h)=>[[x+w,y],[x,y],[x,y+h],[x+w,y+h],[x+w,y-6]];
+function circ(cx,cy,r,a0=-1.9,ov=1.1,ry){ry=ry||r;const p=[];const n=56;for(let i=0;i<=n;i++){const a=a0-i/n*Math.PI*2*ov;const rr=1+0.03*Math.sin(i*0.4);p.push([cx+Math.cos(a)*r*rr,cy+Math.sin(a)*ry*rr])}return p}
+function arc(cx,cy,r,a0,a1){const p=[];const n=30;for(let i=0;i<=n;i++){const a=a0+(a1-a0)*i/n;p.push([cx+Math.cos(a)*r,cy+Math.sin(a)*r])}return p}
+function curve(pts,n=24){ // catmull-rom through pts
+  const o=[];for(let i=0;i<pts.length-1;i++){const p0=pts[i-1]||pts[i],p1=pts[i],p2=pts[i+1],p3=pts[i+2]||p2;
+   for(let k=0;k<n;k++){const t=k/n,t2=t*t,t3=t2*t;o.push([0,1].map(j=>0.5*((2*p1[j])+(-p0[j]+p2[j])*t+(2*p0[j]-5*p1[j]+4*p2[j]-p3[j])*t2+(-p0[j]+3*p1[j]-3*p2[j]+p3[j])*t3)))}}
+  o.push(pts[pts.length-1]);return o}
+// ---------- timeline ----------
+const scenes=[]; let cur=null; const ELS=[];
+function scene(t0,t1){cur={t0,t1,g:null,els:[]};scenes.push(cur)}
+function stroke(pts,t0,dur,o={}){const e={k:'p',pts:o.raw?pts:rough(pts,o.amp??1.7),t0,dur,c:o.c||INK,w:o.w||7,op:o.op||1,sc:cur,grp:o.grp};cur.els.push(e);ELS.push(e);return e}
+function seq(list,t0,t1,o={}){ // list of pts arrays; split time by length
+  const lens=list.map(p=>{let s=0;for(let i=1;i<p.length;i++)s+=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]);return Math.max(s,30)});
+  const tot=lens.reduce((a,b)=>a+b,0); const gap=Math.min(0.04,(t1-t0)*0.15/list.length); const avail=(t1-t0)-gap*(list.length-1);
+  let t=t0; list.forEach((p,i)=>{const d=avail*lens[i]/tot; stroke(p,t,d,o); t+=d+gap});
+}
+function text(str,x,y,size,t0,t1,o={}){const e={k:'t',str,x,y,size,t0,dur:t1-t0,c:o.c||INK,font:o.font||'Lalezar',ltr:o.ltr,rot:o.rot||0,sc:cur,grp:o.grp};cur.els.push(e);ELS.push(e);return e}
+function arrow(x1,y1,x2,y2,t0,t1,o={}){const a=Math.atan2(y2-y1,x2-x1),h=38;
+  seq([curve([[x1,y1],[(x1+x2)/2,(y1+y2)/2-18],[x2,y2]]),[[x2+Math.cos(a+2.6)*h,y2+Math.sin(a+2.6)*h],[x2,y2],[x2+Math.cos(a-2.6)*h,y2+Math.sin(a-2.6)*h]]],t0,t1,o)}
+// figures
+function person(cx,y0,t0,t1,o={}){ // y0 = head center
+  const L2=[circ(cx,y0,40),[[cx,y0+42],[cx,y0+175]],[[cx-72,y0+130],[cx,y0+80],[cx+72,y0+130]],[[cx-58,y0+285],[cx,y0+175],[cx+58,y0+285]]];
+  if(o.tie){seq(L2,t0,t1-0.18,o);stroke([[cx,y0+48],[cx-12,y0+95],[cx,y0+120],[cx+12,y0+95],[cx,y0+48]],t1-0.17,0.17,{c:OR,w:6,grp:o.grp})}
+  else seq(L2,t0,t1,o);
+}
+function pillar(cx,top,bot,w,t0,t1,o={}){
+  seq([rect(cx-w/2-22,top,w+44,30),[[cx-w/2,top+30],[cx-w/2,bot-30]],[[cx+w/2,top+30],[cx+w/2,bot-30]],
+       [[cx-w/6,top+50],[cx-w/6,bot-50]],[[cx+w/6,top+50],[cx+w/6,bot-50]],rect(cx-w/2-30,bot-30,w+60,30)],t0,t1,o)}
+function coin(cx,cy,r,t0,t1,o={}){seq([circ(cx,cy,r),circ(cx,cy,r*0.62,-1.2,1.02)],t0,t1,{c:o.c||INK,w:6,grp:o.grp})}
+function bill(x,y,t0,t1){seq([rect(x,y,200,105),circ(x+100,y+52,28,-1.5,1.05),[[x+22,y+22],[x+22,y+83]],[[x+178,y+22],[x+178,y+83]]],t0,t1,{w:6})}
+
+// ================= SCENES (times from voiceover chunks) =================
+// S1 0 - 4.62
+scene(0,4.62);
+pillar(540,760,1130,150,0.08,0.82,{grp:'p1'});
+person(540,465,0.82,1.22,{grp:'p1'});
+text('مصدر دخل واحد',540,1265,96,1.22,1.76);
+text('مو آمن!',840,500,92,2.0,2.6,{c:OR,rot:-8});
+stroke([[560,790],[520,860],[575,915],[515,990],[570,1050],[530,1110]],2.86,0.42,{c:OR,w:9,grp:'p1'});
+seq([[[190,820],[150,790]],[[200,880],[140,880]],[[190,940],[150,970]]],3.3,3.6,{c:OR,w:7});
+text('أزمة!',255,1065,100,3.62,4.5,{c:OR,rot:6});
+// S2 4.62 - 8.80
+scene(4.62,8.80);
+person(285,420,4.9,5.62,{tie:true});
+bill(170,800,5.93,6.25); bill(195,770,6.25,6.5);
+text('راتب ممتاز',290,1000,80,6.5,6.95);
+seq([rect(640,420,300,440),[[620,420],[790,330],[960,420]],
+     ...[0,1,2].flatMap(r=>[0,1].map(c=>rect(680+c*140,470+r*110,80,70))),rect(752,780,56,80)],6.97,7.62);
+seq([rect(600,945,380,130)],7.62,7.78);
+text('دوام إضافي',790,1045,74,7.78,8.15);
+// scissors + cut
+seq([circ(700,1225,32,0,1.05),circ(780,1225,32,0,1.05),[[715,1195],[860,1060]],[[765,1195],[620,1060]]],8.15,8.55,{c:OR,w:7});
+stroke([[620,935],[960,1085]],8.55,0.22,{c:OR,w:9});
+// S3 8.80 - 11.39
+scene(8.80,11.39);
+seq([rect(380,330,320,270),[[380,400],[700,400]],[[450,305],[450,350]],[[630,305],[630,350]]],9.07,9.45);
+text('شهر واحد',540,545,78,9.45,9.8);
+seq([[[180,700],[180,1250],[920,1250]]],10.01,10.2);
+stroke(curve([[200,760],[340,790],[470,900],[600,950],[730,1100],[850,1190]],16),10.2,0.42,{c:OR,w:10,raw:true});
+seq([[[812,1140],[862,1200],[790,1205]]],10.62,10.72,{c:OR,w:10});
+text('-30%',660,800,170,10.74,11.36,{c:OR,ltr:true});
+// S4 11.39 - 15.44
+scene(11.39,15.44);
+const rows=[[560,11.64,12.76,'خطة بديلة'],[840,12.94,14.02,'مهارة معروضة'],[1120,14.17,15.42,'عرض جاهز']];
+rows.forEach(([y,a,b,s])=>{const d=b-a;
+  seq([rect(830,y-60,110,110)],a,a+d*0.2);
+  text(s,480,y+28,86,a+d*0.2,a+d*0.72);
+  seq([[[845,y-45],[925,y+35]],[[925,y-45],[845,y+35]]],a+d*0.74,b,{c:OR,w:10});});
+// S5 15.44 - 20.68
+scene(15.44,20.68);
+seq([circ(430,420,38),arc(430,520,62,Math.PI*1.05,Math.PI*1.95),circ(650,420,38),arc(650,520,62,Math.PI*1.05,Math.PI*1.95),[[320,540],[760,540]],[[360,540],[360,620]],[[720,540],[720,620]]],15.62,16.2);
+seq([curve([[735,880],[705,830],[715,770],[780,735],[845,770],[855,830],[825,880]]),[[735,880],[825,880]],[[745,910],[815,910]],[[755,940],[805,940]]],16.3,16.75,{c:OR,w:8});
+seq([[[780,690],[780,650]],[[870,725],[900,700]],[[690,725],[660,700]]],16.75,16.95,{c:OR,w:7});
+text('مهارة',780,1060,92,16.97,17.72);
+arrow(660,820,450,820,18.05,18.4);
+seq([rect(170,700,230,290),[[200,700],[200,990]],[[230,940],[370,940]]],18.4,18.95);
+text('منتج رقمي',285,1080,80,18.95,19.6);
+text('دليل',290,870,84,19.92,20.6,{c:OR});
+// S6 20.68 - 25.91
+scene(20.68,25.91);
+seq([rect(760,350,140,180),[[780,350],[780,530]]],20.92,21.3);
+text('مرة وحدة',500,475,90,21.3,21.76);
+stroke([[940,720],[140,720]],21.95,0.2,{w:6});
+[840,640,440,240].forEach((x,i)=>coin(x,720,52,22.15+i*0.22,22.35+i*0.22,{c:OR}));
+text('كل أسبوع',540,860,70,23.02,23.36);
+text('مبلغ صغير بالبداية',540,1005,76,23.4,24.5);
+pillar(720,1070,1300,90,24.72,25.12); pillar(900,1070,1300,90,25.12,25.48);
+text('مصدر ثاني',340,1220,90,25.48,25.9,{c:OR});
+// S7 25.91 - end
+scene(25.91,34);
+text('ما بدك تضل',540,420,86,26.22,26.95);
+text('على راتب واحد؟',540,530,86,26.95,27.72);
+seq([curve([[540,600],[860,610],[900,760],[840,880],[620,895],[700,960],[560,900],[300,890],[180,760],[230,620],[540,600]],14)],27.97,28.48,{w:8});
+text('أمان',540,810,170,28.5,29.15,{c:OR});
+stroke(curve([[680,850],[540,862],[400,848]]),29.18,0.4,{c:OR,w:9,raw:false});
+text('مهارتك',800,1110,86,29.9,30.5);
+arrow(650,1080,440,1080,30.5,30.8);
+text('منتج رقمي',260,1110,82,30.8,31.6);
+text('هالأسبوع',540,1265,96,31.7,32.45,{c:OR});
+stroke(circ(540,1238,175,-2.2,1.08,72),32.45,0.5,{c:OR,w:7,amp:2.5});
+
+// ================= CAPTIONS =================
+const CAPS=[[0.048,1.759,'إذا عندك مصدر دخل واحد بس،'],[2.003,2.601,'أنت مو آمن.'],[2.843,4.596,'أنت على بعد مشكلة وحدة من الأزمة.'],
+[4.899,5.7,'موظف اجاني،'],[5.931,6.706,'راتبه ممتاز.'],[6.974,8.778,'بس الشركة قررت تقطع دوام إضافي.'],[9.073,9.796,'بشهر واحد،'],
+[10.013,11.367,'دخله نزل 30%.'],[11.638,12.761,'ما كان عنده خطة بديلة.'],[12.943,14.018,'ولا مهارة معروضة.'],[14.173,15.416,'ولا عرض واحد جاهز.'],
+[15.657,16.131,'قعدنا،'],[16.305,17.765,'وطلعنا مهارة وحدة من شغله.'],[18.047,19.654,'حولناها لمنتج رقمي صغير:'],[19.906,20.655,'دليل واحد.'],
+[20.918,21.765,'بناه مرة وحدة،'],[21.949,23.085,'وصار يبيعه كل أسبوع.'],[23.375,24.515,'مو مبلغ كبير بالبداية،'],[24.724,25.891,'بس صار عنده مصدر ثاني.'],
+[26.218,27.738,'إذا ما بدك تضل على راتب واحد،'],[27.968,29.66,'اكتب كلمة أمان بالتعليقات،'],[29.889,32.965,'وببعتلك كيف تحول مهارتك لمنتج رقمي صغير هالأسبوع.']];
+const KEY=['آمن','الأزمة','30%','بديلة','معروضة','جاهز','رقمي','دليل','ثاني','أمان','هالأسبوع','ممتاز','إضافي'];
+CAPS.forEach(c=>{const ws=c[2].split(' ');const tot=ws.reduce((a,w)=>a+w.length+2,0);let t=c[0];
+  c.words=ws.map(w=>{const d=(c[1]-c[0])*(w.length+2)/tot;const o={w,t0:t,t1:t+d};t+=d;return o})});
+
+// ================= BUILD DOM =================
+const world=document.getElementById('world'), defs=document.getElementById('defs'), NS='http://www.w3.org/2000/svg';
+function mk(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);parent.appendChild(e);return e}
+let cid=0;
+function build(){
+  scenes.forEach((s,si)=>{s.g=mk('g',{},world);const grps={};
+    s.els.forEach(e=>{let parent=s.g;if(e.grp){parent=grps[e.grp]||(grps[e.grp]=mk('g',{},s.g))}
+      if(e.k==='p'){e.el=mk('path',{d:toD(e.pts),fill:'none',stroke:e.c,'stroke-width':e.w,'stroke-linecap':'round','stroke-linejoin':'round',opacity:e.op},parent);
+        e.len=e.el.getTotalLength();e.el.style.strokeDasharray=e.len+' '+(e.len+10);}
+      else{const id='c'+(cid++);const cp=mk('clipPath',{id},defs);e.clip=mk('rect',{x:0,y:-2000,width:0,height:6000},cp);
+        const g=mk('g',{transform:`rotate(${e.rot} ${e.x} ${e.y})`},parent);
+        e.el=mk('text',{x:e.x,y:e.y,'text-anchor':'middle','font-family':e.font,'font-size':e.size,fill:e.c,direction:e.ltr?'ltr':'rtl','clip-path':`url(#${id})`},g);
+        e.el.textContent=e.str;const b=e.el.getBBox();e.bb={x:b.x-6,y:b.y,w:b.width+12,h:b.height};e.clip.setAttribute('x',e.bb.x);}
+    });s.grps=grps;});
+}
+const ease=x=>x<0?0:x>1?1:x*x*(3-2*x);
+function sceneT(s,t){ // returns {tx,s}
+  const i=scenes.indexOf(s);const z=1+0.03*Math.min(1,Math.max(0,(t-s.t0)/(s.t1-s.t0)));
+  let tx=0;const TR=0.3;
+  if(i>0&&t<s.t0+TR)tx=-1150*(1-ease((t-s.t0)/TR));
+  const nx=scenes[i+1];if(nx&&t>=nx.t0)tx=1150*ease((t-nx.t0)/TR);
+  return {tx,z};
+}
+function scr(s,t,x,y){const T=sceneT(s,t);return [CX+(x-CX)*T.z+T.tx, CY+(y-CY)*T.z]}
+function tipAt(e,p,t){ // tip point (scene coords) of element at progress p
+  if(e.k==='p'){const q=e.el.getPointAtLength(e.len*p);return [q.x,q.y]}
+  const b=e.bb;const x=e.ltr? b.x+b.w*p : b.x+b.w*(1-p);const y=b.y+b.h*0.55+b.h*0.18*Math.sin(p*b.w/22);
+  const r=e.rot*Math.PI/180;const dx=x-e.x,dy=y-e.y;return [e.x+dx*Math.cos(r)-dy*Math.sin(r), e.y+dx*Math.sin(r)+dy*Math.cos(r)];
+}
+const REST=[1300,2250];
+function handPos(t){
+  const S=ELS.slice().sort((a,b)=>a.t0-b.t0);
+  for(const e of S){if(t>=e.t0&&t<=e.t0+e.dur){const p=ease((t-e.t0)/e.dur*1.0);const pp=(t-e.t0)/e.dur;return scr(e.sc,t,...tipAt(e,e.k==='p'?pp:pp,t))}}
+  let prev=null,next=null;for(const e of S){if(e.t0+e.dur<t)prev=e;else if(e.t0>t){next=e;break}}
+  const pEnd=prev?scr(prev.sc,t,...tipAt(prev,1,t)):REST, pT=prev?prev.t0+prev.dur:-9;
+  const nSt=next?scr(next.sc,t,...tipAt(next,0,t)):REST, nT=next?next.t0:99;
+  const gap=nT-pT;
+  if(prev&&next&&gap<0.9&&prev.sc===next.sc){const u=ease((t-pT)/gap);return [pEnd[0]+(nSt[0]-pEnd[0])*u,pEnd[1]+(nSt[1]-pEnd[1])*u-Math.sin(u*Math.PI)*30]}
+  const OUT=0.4;
+  if(prev&&t-pT<OUT){const u=ease((t-pT)/OUT);return [pEnd[0]+(REST[0]-pEnd[0])*u,pEnd[1]+(REST[1]-pEnd[1])*u]}
+  if(next&&nT-t<OUT){const u=ease(1-(nT-t)/OUT);return [REST[0]+(nSt[0]-REST[0])*u,REST[1]+(nSt[1]-REST[1])*u]}
+  return REST;
+}
+const capEl=document.getElementById('cap');let capIdx=-1;
+function renderAt(t){
+  scenes.forEach((s,i)=>{const nx=scenes[i+1];const vis=t>=s.t0-0.01&&(!nx||t<nx.t0+0.32);s.g.style.display=vis?'':'none';
+    const T=sceneT(s,t);s.g.setAttribute('transform',`translate(${T.tx},0) translate(${CX},${CY}) scale(${T.z}) translate(${-CX},${-CY})`);
+    s.els.forEach(e=>{const p=Math.min(1,Math.max(0,(t-e.t0)/e.dur));
+      if(e.k==='p')e.el.style.strokeDashoffset=e.len*(1-p);
+      else {const w=e.bb.w*p; e.clip.setAttribute('width',w); e.clip.setAttribute('x',e.ltr?e.bb.x:e.bb.x+e.bb.w-w);}});
+    // pillar tilt in scene 1
+    if(i===0&&s.grps.p1){const a=-7*ease((t-3.28)/0.5);s.grps.p1.setAttribute('transform',`rotate(${a} 540 1130)`)}
+  });
+  const hp=handPos(t);const h=document.getElementById('hand');h.style.display='';const rot=2.5*Math.sin(t*1.7);h.setAttribute('transform',`translate(${hp[0].toFixed(1)},${hp[1].toFixed(1)}) rotate(${rot.toFixed(2)}) scale(0.46) translate(-40,-560)`);
+  // captions
+  let ci=-1;CAPS.forEach((c,i)=>{if(t>=c[0]-0.05)ci=i});
+  if(ci>=0&&CAPS[ci+1]===undefined&&t>CAPS[ci][1]+1.5)ci=-1;
+  if(ci!==capIdx){capIdx=ci;capEl.innerHTML='';if(ci>=0)CAPS[ci].words.forEach(o=>{const sp=document.createElement('span');sp.textContent=o.w;o.el=sp;capEl.appendChild(sp)})}
+  if(ci>=0)CAPS[ci].words.forEach(o=>{const st=t>=o.t0?(t<o.t1?2:1):0;const key=KEY.some(k=>o.w.includes(k));
+    const ap=Math.min(1,Math.max(0,(t-o.t0+0.06)/0.12));
+    o.el.style.opacity=st===0?0:ap; o.el.style.color=(st===2||key)?OR:INK;
+    o.el.style.transform=`translateY(${(1-ap)*14}px) scale(${st===2?1.07:1})`;});
+}
+window.TIMELINE=()=>ELS.map(e=>({k:e.k,t0:e.t0,dur:e.dur}));
+window.ready=Promise.all([document.fonts.load('96px Lalezar','مصدر'),document.fonts.load('800 60px Cairo','مصدر')]).then(()=>document.fonts.ready).then(()=>{build();renderAt(0);return true});
+window.renderAt=renderAt;
+</script></body></html>
