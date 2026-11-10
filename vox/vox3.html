@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="ar" dir="ltr"><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Lalezar;src:url(fonts/Lalezar.ttf)}
+@font-face{font-family:Cairo;src:url(fonts/Cairo.ttf);font-weight:800}
+html,body{margin:0;width:1080px;height:1920px;overflow:hidden;background:#222}
+#stage{position:absolute;inset:0;transform-origin:540px 860px}
+.scene{position:absolute;inset:-60px;overflow:hidden;background-color:#EFE6D2;background-image:url(tex/paper.png);background-blend-mode:multiply;background-size:1200px 2040px;
+ box-shadow:-30px 0 60px rgba(0,0,0,.35),30px 0 60px rgba(0,0,0,.35)}
+.layer{position:absolute;left:60px;top:60px;width:1080px;height:1920px}
+#hud{position:absolute;inset:0;pointer-events:none}
+.el{position:absolute;transform-origin:50% 50%;will-change:transform}
+.sh{filter:drop-shadow(0 14px 14px rgba(0,0,0,.28)) drop-shadow(0 3px 3px rgba(0,0,0,.25))}
+.card{width:100%;height:100%;background:#FBF8F0;background-image:url(tex/paper.png);background-blend-mode:multiply;background-size:1080px 1920px}
+.h{font-family:Lalezar;color:#141414;white-space:nowrap;line-height:1;direction:rtl;text-align:center}
+.c{font-family:Cairo;font-weight:800;direction:rtl;color:#141414}
+.tag{font-family:Lalezar;white-space:nowrap;direction:rtl;padding:14px 30px 6px;border-radius:10px;line-height:1.1;text-align:center}
+.hl{background:#FFD23F;border-radius:6px 14px 8px 12px;transform:skewX(-6deg)}
+.dots{background-image:radial-gradient(circle,rgba(0,0,0,.18) 3px,transparent 3.6px);background-size:16px 16px}
+.bub{background:#fff;border-radius:34px 34px 34px 8px;padding:20px 30px 14px;font-family:Cairo;font-weight:800;font-size:46px;direction:rtl;white-space:nowrap;color:#141414;box-sizing:border-box}
+#grain{position:absolute;inset:0;pointer-events:none;opacity:.55;mix-blend-mode:overlay}
+#vig{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,transparent 55%,rgba(40,25,10,.35) 100%)}
+#flash{position:absolute;inset:0;pointer-events:none;background:#fff;opacity:0}
+#scan{position:absolute;inset:0;pointer-events:none;opacity:0;background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 3px,transparent 3px 7px);mix-blend-mode:multiply}
+#cap{position:absolute;left:50%;top:1400px;transform:translateX(-50%);max-width:900px;width:max-content;padding:10px 30px 16px;border-radius:14px;
+ background:#141414;border:3px solid rgba(255,255,255,.28);display:flex;flex-wrap:wrap;justify-content:center;gap:0 16px;font-family:Cairo;font-weight:800;font-size:56px;line-height:1.45;color:#fff;direction:rtl;box-shadow:0 10px 24px rgba(0,0,0,.3)}
+#cap:empty{display:none}
+#cap span{display:inline-block}
+</style></head><body>
+<div id="stage"></div>
+<div id="vig"></div>
+<div id="hud"></div>
+<div id="scan"></div>
+<div id="flash"></div>
+<div id="grain"></div>
+<div id="cap"></div>
+<script>
+const C=[[0.03, 3.685], [3.9, 6.595], [6.965, 7.78], [8.045, 11.78], [11.99, 13.005], [13.1, 14.01], [14.12, 14.785], [15.155, 15.96], [16.185, 18.1], [18.2, 19.485], [19.765, 21.335], [21.445, 22.705], [22.975, 23.42], [23.62, 25.77], [25.92, 27.96], [28.315, 29.2], [29.47, 33.505], [33.74, 34.7], [34.815, 36.3], [36.675, 37.28], [37.51, 39.145], [39.31, 42.805], [43.105, 43.67], [43.805, 45.04], [45.19, 48.58], [48.735, 51.19], [51.325, 52.645]];
+const T=(i,f)=>C[i][0]+f*(C[i][1]-C[i][0]);
+const TXT=['لو أنت موظف وعندك مهارة، بس ما بتعرف إذا بتنباع أو لا،','جاوب على هالـ 3 أسئلة، ورح تعرف خلال دقيقة.','السؤال الأول:','شو الشي يلي الناس بتطلب مساعدتك فيه مجاناً، أكتر من مرة بالشهر؟',
+'إذا تكرر الطلب،','هاي إشارة سوق،','مو مجاملة.','السؤال الثاني:','هل هالشي بيحل مشكلة بتوجع الناس،','ولا بس شي حلو يعرفوه؟','الناس بتدفع لتخفيف الألم،','مو لتعلم معلومة حلوة.','مثال:',
+'"ساعدني أعمل سيرة ذاتية تجيب مقابلات"','بتنباع أكتر من "علمني التصميم".','السؤال الثالث:','هل بتقدر تقدم النتيجة بـ 30 دقيقة أو أقل، بدون ما تتعلم شي جديد؟','إذا الجواب نعم،','عندك خدمة جاهزة للبيع.',
+'الخلاصة:','مهارتك القابلة للبيع هي:','طلب متكرر + مشكلة مؤلمة + نتيجة سريعة.','إذا بدك،','اكتب كلمة "مهارتي"،','وأبعتلك ورقة فيها الـ 3 أسئلة مع جدول لتقييم مهارتك من 10،','و3 أمثلة لخدمات جاهزة بنفس مهارتك،','لحتى ما تبدأ من الصفر.'];
+const KEY=['مهارة','بتنباع','3','دقيقة','الأول','مجاناً','تكرر','سوق','الثاني','بتوجع','الألم','مقابلات','أكتر','الثالث','30','نعم','جاهزة','الخلاصة','متكرر','مؤلمة','سريعة','"مهارتي"','10','الصفر'];
+// ---------------- helpers ----------------
+const clamp=u=>u<0?0:u>1?1:u;
+const eOutCubic=u=>1-Math.pow(1-clamp(u),3);
+const eOutBack=(u,s=1.9)=>{u=clamp(u)-1;return u*u*((s+1)*u+s)+1};
+const eInOut=u=>{u=clamp(u);return u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2};
+const eBounce=u=>{u=clamp(u);const n=7.5625,d=2.75;if(u<1/d)return n*u*u;if(u<2/d)return n*(u-=1.5/d)*u+.75;if(u<2.5/d)return n*(u-=2.25/d)*u+.9375;return n*(u-=2.625/d)*u+.984375};
+let seed=21;const rnd=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646};
+function torn(w,h,a=7,st=16){const p=[];const j=()=>(rnd()-.5)*2*a;
+  for(let x=0;x<=w;x+=st)p.push([x,Math.max(0,a+j())]);for(let y=0;y<=h;y+=st)p.push([w-Math.max(0,a+j()),y]);
+  for(let x=w;x>=0;x-=st)p.push([x,h-Math.max(0,a+j())]);for(let y=h;y>=0;y-=st)p.push([Math.max(0,a+j()),y]);
+  return 'polygon('+p.map(q=>q[0].toFixed(1)+'px '+q[1].toFixed(1)+'px').join(',')+')'}
+// ---------------- scenes & elements ----------------
+const scenes=[],ELS=[],SFX=[],SHAKES=[],PUNCH=[],FLASH=[],GLITCH=[],TILT=[];let cur;
+const stage=document.getElementById('stage');
+const hud={L:document.getElementById('hud'),els:[]};
+function scene(t0,tint,from,v){const d=document.createElement('div');d.className='scene';d.style.backgroundColor=tint;
+  const L=document.createElement('div');L.className='layer';d.appendChild(L);stage.appendChild(d);cur={t0,d,L,from:from||1,v:!!v,els:[]};scenes.push(cur);
+  if(scenes.length>1)SFX.push({t:t0,k:'paper'});return cur}
+function E(o){const w=document.createElement('div');w.className='el'+(o.sh===false?'':' sh');
+  w.style.left=(o.x-o.w/2)+'px';w.style.top=(o.y-o.h/2)+'px';w.style.width=o.w+'px';w.style.height=o.h+'px';w.style.zIndex=o.z||1;
+  w.innerHTML=o.html||'';cur.L.appendChild(w);const e=Object.assign({d:0.45,r:0,a:'pop',float:true},o,{el:w,ph:rnd()*6});
+  e.paths=[...w.querySelectorAll('.draw')];e.paths.forEach(p=>{p.setAttribute('pathLength','1');p.style.strokeDasharray='1 1.02';p.style.strokeDashoffset='1'});
+  if(e.text){e.tn=w.querySelector('.ty')}
+  if(e.a==='count'){e.cn=w.querySelector('.cnt')}
+  cur.els.push(e);ELS.push(e);
+  const sk=o.sfx!==undefined?o.sfx:{pop:'pop',drop:'thud',stamp:'stamp',slam:'boom',slideL:'swoosh',slideR:'swoosh',slideUp:'swoosh',wipe:'swipe',draw:'marker',count:'tick',grow:'pop',fade:null}[e.a];
+  if(sk)SFX.push({t:e.t,k:sk,d:e.d});
+  if(e.text)SFX.push({t:e.typeT,k:'type',n:e.text.length});
+  if(e.a==='stamp'||e.a==='slam'){SHAKES.push({t:e.t+e.d*0.8,amp:e.shake||16})}
+  return e}
+const card=(inner,clip,bg)=>`<div class="card" style="clip-path:${clip};${bg?'background-color:'+bg+';':''}">${inner}</div>`;
+const svg=(w,h,body)=>`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">${body}</svg>`;
+const STK='stroke="#fff" stroke-width="10" paint-order="stroke" stroke-linejoin="round"';
+// ---------------- icons ----------------
+const gearSVG=s=>{let p='';for(let i=0;i<8;i++){const a=i*Math.PI/4;p+=`<rect x="${s/2-s*.07}" y="${s*.02}" width="${s*.14}" height="${s*.2}" rx="4" fill="#2A9D8F" transform="rotate(${a*180/Math.PI} ${s/2} ${s/2})"/>`}
+  return svg(s,s,`<g ${STK}>${p}<circle cx="${s/2}" cy="${s/2}" r="${s*.34}" fill="#2A9D8F"/></g><circle cx="${s/2}" cy="${s/2}" r="${s*.13}" fill="#EFE6D2"/>`)};
+const tagSVG=(w,h,txt,col='#FFD23F')=>svg(w,h,`<g ${STK}><path d="M${w*.22},${h*.06} L${w*.96},${h*.06} L${w*.96},${h*.94} L${w*.22},${h*.94} L${w*.03},${h*.5} Z" fill="${col}"/></g><circle cx="${w*.2}" cy="${h*.5}" r="${h*.09}" fill="#EFE6D2" stroke="#141414" stroke-width="5"/>
+ <text x="${w*.6}" y="${h*.72}" font-family="Lalezar" font-size="${h*.62}" text-anchor="middle" fill="#141414">${txt}</text>`);
+const watchSVG=s=>svg(s,s*1.15,`<g ${STK}><rect x="${s*.4}" y="0" width="${s*.2}" height="${s*.14}" rx="5" fill="#141414"/><circle cx="${s/2}" cy="${s*.63}" r="${s*.47}" fill="#141414"/></g><circle cx="${s/2}" cy="${s*.63}" r="${s*.38}" fill="#fff"/>
+ <circle class="pie" cx="${s/2}" cy="${s*.63}" r="${s*.19}" fill="none" stroke="#E5383B" stroke-width="${s*.38}" transform="rotate(-90 ${s/2} ${s*.63})" pathLength="1" style="stroke-dasharray:0 1"/>`);
+const antennaSVG=s=>svg(s,s,`<g ${STK}><path d="M${s*.5},${s*.45} L${s*.3},${s*.98} L${s*.7},${s*.98} Z" fill="#3D5A80"/><circle cx="${s*.5}" cy="${s*.42}" r="${s*.09}" fill="#E5383B"/></g>
+ <g fill="none" stroke="#E5383B" stroke-width="${s*.05}" stroke-linecap="round"><path class="draw" d="M${s*.32},${s*.26} A${s*.25},${s*.25} 0 0 0 ${s*.32},${s*.58}"/><path class="draw" d="M${s*.68},${s*.26} A${s*.25},${s*.25} 0 0 1 ${s*.68},${s*.58}"/>
+ <path class="draw" d="M${s*.18},${s*.14} A${s*.42},${s*.42} 0 0 0 ${s*.18},${s*.7}"/><path class="draw" d="M${s*.82},${s*.14} A${s*.42},${s*.42} 0 0 1 ${s*.82},${s*.7}"/></g>`);
+const boltSVG=s=>svg(s,s,`<path d="M${s*.58},${s*.02} L${s*.18},${s*.56} L${s*.46},${s*.56} L${s*.36},${s*.98} L${s*.84},${s*.38} L${s*.54},${s*.38} Z" fill="#E5383B" ${STK}/>`);
+const starSVG=s=>{let p='';for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,r=i%2?s*.2:s*.46;p+=(i?'L':'M')+(s/2+r*Math.cos(a)).toFixed(1)+','+(s/2+r*Math.sin(a)).toFixed(1)}return svg(s,s,`<path d="${p}Z" fill="#FFD23F" ${STK}/>`)};
+const coinSVG=s=>svg(s,s,`<circle cx="${s/2}" cy="${s/2}" r="${s/2-4}" fill="#F2B705" ${STK}/><circle cx="${s/2}" cy="${s/2}" r="${s*.32}" fill="none" stroke="#C98F00" stroke-width="${s*.06}"/>`);
+const docSVG=(w,h,col)=>svg(w,h,`<g ${STK}><path d="M0,0 L${w*.72},0 L${w},${h*.2} L${w},${h} L0,${h} Z" fill="#fff"/></g><path d="M${w*.72},0 L${w*.72},${h*.2} L${w},${h*.2}" fill="#ddd"/>
+ <circle cx="${w*.75}" cy="${h*.33}" r="${w*.1}" fill="${col}"/><rect x="${w*.12}" y="${h*.28}" width="${w*.45}" height="${h*.04}" fill="#999"/><rect x="${w*.12}" y="${h*.36}" width="${w*.35}" height="${h*.03}" fill="#bbb"/>
+ ${[0,1,2,3].map(i=>`<rect x="${w*.12}" y="${h*(.52+i*.1)}" width="${w*(.76-i*.08)}" height="${h*.035}" fill="#ccc"/>`).join('')}`);
+const brushSVG=s=>svg(s,s,`<g ${STK}><rect x="${s*.42}" y="${s*.05}" width="${s*.16}" height="${s*.55}" rx="8" fill="#9C6644" transform="rotate(30 ${s/2} ${s/2})"/><path d="M${s*.2},${s*.95} C${s*.15},${s*.75} ${s*.3},${s*.62} ${s*.42},${s*.66} C${s*.5},${s*.7} ${s*.45},${s*.88} ${s*.2},${s*.95} Z" fill="#8D99AE"/></g>`);
+const bookXSVG=s=>svg(s,s,`<g ${STK}><rect x="${s*.15}" y="${s*.1}" width="${s*.62}" height="${s*.8}" rx="8" fill="#3D5A80"/></g><rect x="${s*.15}" y="${s*.1}" width="${s*.1}" height="${s*.8}" fill="#2B4160"/>
+ <g stroke="#E5383B" stroke-width="${s*.09}" stroke-linecap="round"><path class="draw" d="M${s*.05},${s*.08} L${s*.95},${s*.92}"/><path class="draw" d="M${s*.95},${s*.08} L${s*.05},${s*.92}"/></g>`);
+const boxSVG=s=>svg(s,s,`<g ${STK}><path d="M${s*.08},${s*.32} L${s*.5},${s*.14} L${s*.92},${s*.32} L${s*.92},${s*.8} L${s*.5},${s*.98} L${s*.08},${s*.8} Z" fill="#C8956D"/></g>
+ <path d="M${s*.08},${s*.32} L${s*.5},${s*.5} L${s*.92},${s*.32} M${s*.5},${s*.5} L${s*.5},${s*.98}" stroke="#9C6644" stroke-width="6" fill="none"/><path d="M${s*.29},${s*.23} L${s*.71},${s*.41}" stroke="#FFD23F" stroke-width="${s*.07}"/>`);
+const phoneHTML=(w,h,inner)=>`<div style="width:${w}px;height:${h}px;background:#1E1E1E;border-radius:56px;padding:24px;box-sizing:border-box"><div style="position:relative;width:100%;height:100%;background:#fff;border-radius:36px;overflow:hidden">${inner}</div></div>`;
+const numCard=(n,col)=>`<div style="width:100%;height:100%;border-radius:50%;background:${col};border:10px solid #fff;box-sizing:border-box;display:flex;align-items:center;justify-content:center"><div class="h" style="font-size:150px;padding-top:24px;color:#141414">${n}</div></div>`;
+function Q(i,n,label,out){ // question title block
+  E({x:540,y:400,w:240,h:240,t:C[i][0]-0.02,a:'slam',d:0.3,shake:22,out,html:numCard(n,'#FFD23F'),sfx:'boom'});
+  E({x:540,y:600,w:520,h:110,t:C[i][0]+0.12,a:'pop',out,html:`<div class="tag" style="font-size:76px;background:#141414;color:#fff">${label}</div>`});
+  FLASH.push({t:C[i][0]-0.02,a:0.55});GLITCH.push({t:C[i][0]-0.04});
+}
+// ---------------- build ----------------
+function build(){
+const chk=(s,col='#4C9A5B')=>svg(s,s,`<path class="draw" d="M${s*.15},${s*.55} L${s*.4},${s*.8} L${s*.87},${s*.2}" stroke="${col}" stroke-width="${s*.17}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`);
+const xx=(s,col='#E5383B')=>svg(s,s,`<path class="draw" d="M${s*.18},${s*.18} L${s*.82},${s*.82}" stroke="${col}" stroke-width="${s*.16}" fill="none" stroke-linecap="round"/><path class="draw" d="M${s*.82},${s*.18} L${s*.18},${s*.82}" stroke="${col}" stroke-width="${s*.16}" fill="none" stroke-linecap="round"/>`);
+const disc=col=>`<div style="width:100%;height:100%;border-radius:50%;background:${col};border:10px solid #fff;box-sizing:border-box"></div>`;
+const repeatSVG=(s,col)=>svg(s,s,`<g fill="none" stroke="${col}" stroke-width="${s*.1}" stroke-linecap="round"><path d="M${s*.2},${s*.45} A${s*.3},${s*.3} 0 0 1 ${s*.75},${s*.3}"/><path d="M${s*.8},${s*.55} A${s*.3},${s*.3} 0 0 1 ${s*.25},${s*.7}"/></g>
+ <polygon points="${s*.62},${s*.14} ${s*.88},${s*.2} ${s*.7},${s*.44}" fill="${col}"/><polygon points="${s*.38},${s*.86} ${s*.12},${s*.8} ${s*.3},${s*.56}" fill="${col}"/>`);
+const bookSVG=s=>svg(s,s,`<g ${STK}><rect x="${s*.15}" y="${s*.1}" width="${s*.62}" height="${s*.8}" rx="8" fill="#3D5A80"/></g><rect x="${s*.15}" y="${s*.1}" width="${s*.1}" height="${s*.8}" fill="#2B4160"/><rect x="${s*.35}" y="${s*.25}" width="${s*.3}" height="${s*.07}" fill="#FFD23F"/>`);
+function QH(i,n,label){
+  E({x:540,y:900,w:900,h:1150,t:C[i][0]-0.05,a:'pop',d:0.5,sh:false,z:0,float:false,sfx:null,html:`<div class="h" style="font-size:1150px;color:rgba(20,20,20,.07)">${n}</div>`});
+  E({x:840,y:350,w:190,h:190,t:C[i][0]-0.02,a:'slam',d:0.3,shake:22,z:4,sfx:'boom',html:numCard(n,'#FFD23F').replace('font-size:150px;padding-top:24px','font-size:120px;padding-top:18px')});
+  E({x:450,y:350,w:520,h:120,t:C[i][0]+0.1,a:'slideR',d:0.35,z:4,html:`<div class="tag" style="font-size:80px;background:#141414;color:#fff">${label}</div>`});
+  FLASH.push({t:C[i][0]-0.02,a:0.5});GLITCH.push({t:C[i][0]-0.04});
+}
+// ===================== HOOK A (dark) =====================
+scene(0,'#141414');
+E({x:540,y:470,w:900,h:260,t:0,a:'slam',from:1.1,d:0.25,sh:false,sfx:'boom',shake:26,html:`<div class="h" style="font-size:250px;color:#fff">مهارتك</div>`});
+E({x:540,y:770,w:820,h:300,t:0,a:'slam',from:1.15,d:0.3,r:-4,z:2,sfx:null,html:`<div style="background:#FFD23F;height:100%;border-radius:10px 26px 14px 22px;display:flex;align-items:center;justify-content:center"><div class="h" style="font-size:240px;color:#E5383B;padding-top:30px;text-shadow:6px 6px 0 #141414">بتنباع؟</div></div>`});
+GLITCH.push({t:0.08});
+E({x:300,y:1110,w:440,h:220,t:T(0,0.1),a:'slideL',d:0.4,r:-3,html:card(`<div style="position:absolute;top:0;left:0;right:0;height:44px;background:#3D5A80"></div>
+ <div style="position:absolute;right:26px;top:66px;width:120px;height:120px;border-radius:50%;background:#9FC5E8;overflow:hidden"><div style="position:absolute;left:36px;top:20px;width:48px;height:48px;border-radius:50%;background:#141414"></div><div style="position:absolute;left:14px;top:76px;width:92px;height:70px;border-radius:50px 50px 0 0;background:#141414"></div></div>
+ <div class="h" style="position:absolute;right:170px;top:86px;font-size:84px">موظف</div>`,torn(440,220,4))});
+E({x:790,y:1090,w:200,h:200,t:T(0,0.38),a:'pop',d:0.4,html:gearSVG(200)});
+E({x:790,y:1240,w:250,h:96,t:T(0,0.44),a:'pop',z:2,html:'<div class="tag" style="font-size:66px;background:#2A9D8F;color:#fff">مهارة</div>'});
+E({x:150,y:640,w:170,h:170,t:T(0,0.72),a:'slam',d:0.22,z:5,shake:10,sfx:'thud',html:disc('#4C9A5B')});
+E({x:150,y:640,w:120,h:120,t:T(0,0.74),a:'draw',d:0.2,z:6,sh:false,html:chk(120,'#fff')});
+E({x:930,y:930,w:170,h:170,t:T(0,0.88),a:'slam',d:0.22,z:5,shake:10,sfx:'thud',html:disc('#E5383B')});
+E({x:930,y:930,w:120,h:120,t:T(0,0.9),a:'draw',d:0.2,z:6,sh:false,html:xx(120,'#fff')});
+PUNCH.push({t:T(0,0.72),amp:0.04});
+// ===================== HOOK B (yellow, drops from top) =====================
+scene(C[1][0]-0.18,'#FFD23F',-1,true);FLASH.push({t:C[1][0]-0.18,a:0.35});GLITCH.push({t:C[1][0]-0.16});
+E({x:540,y:600,w:600,h:720,t:T(1,0.2),a:'slam',d:0.28,shake:24,sfx:'boom',sh:false,html:`<div class="h" style="font-size:760px;color:#141414;text-shadow:14px 14px 0 #E5383B">3</div>`});
+E({x:540,y:1010,w:440,h:150,t:T(1,0.3),a:'pop',r:-3,z:3,html:'<div class="tag" style="font-size:104px;background:#141414;color:#fff">أسئلة</div>'});
+const hw=E({x:250,y:1200,w:200,h:230,t:T(1,0.62),a:'pop',z:3,html:watchSVG(200)});hw.pie={t:T(1,0.66),d:0.9,to:1};
+E({x:670,y:1210,w:480,h:120,t:T(1,0.72),a:'slideR',d:0.35,r:2,z:3,html:'<div class="tag" style="font-size:80px;background:#E5383B;color:#fff">خلال دقيقة</div>'});
+SFX.push({t:T(1,0.55),k:'riser',d:C[2][0]-T(1,0.55)});
+// ===================== Q1 =====================
+scene(C[2][0]-0.3,'#E3EAF0',1);
+QH(2,'1','السؤال الأول');
+E({x:290,y:930,w:400,h:620,t:C[3][0],a:'slideUp',d:0.45,r:-2,html:phoneHTML(400,620,`<div style="height:80px;background:#2A9D8F;font-family:Cairo;font-weight:800;font-size:36px;text-align:center;line-height:80px;color:#fff;direction:rtl">الرسائل</div>`)});
+['ممكن مساعدة؟','بتعملها إلي؟','بس هالمرة!'].forEach((s,i)=>E({x:290+(i%2?-20:20),y:800+i*105,w:300,h:84,t:T(3,0.14+i*0.12),a:'pop',d:0.3,z:3,sfx:'ping',
+  html:`<div class="bub" style="font-size:36px;padding:14px 22px 10px;${i%2?'background:#DCF8C6;border-radius:28px 28px 8px 28px':'background:#EEF1F5;border-radius:28px 28px 28px 8px'}">${s}</div>`}));
+E({x:770,y:650,w:340,h:150,t:T(3,0.52),a:'stamp',d:0.22,r:-8,z:5,shake:12,html:'<div class="h" style="font-size:96px;color:#E5383B;border:10px solid #E5383B;border-radius:16px;padding:20px 20px 2px;background:rgba(255,255,255,.7)">مجاناً</div>'});
+E({x:770,y:1020,w:400,h:420,t:T(3,0.7),a:'pop',d:0.4,r:3,html:`<div style="width:100%;height:100%;background:#FBF8F0;border-radius:18px;overflow:hidden;border:8px solid #fff;box-sizing:border-box">
+ <div class="h" style="background:#E5383B;color:#fff;font-size:60px;padding:18px 0 4px">بالشهر</div><div style="position:absolute;left:36px;right:36px;top:128px;bottom:34px;background-image:radial-gradient(circle,#C9D2DC 13px,transparent 14px);background-size:47px 62px"></div></div>`});
+E({x:770,y:1060,w:400,h:300,t:T(3,0.8),a:'draw',d:0.5,z:3,sh:false,html:svg(400,300,[[83,62],[224,124],[318,248]].map(([x,y])=>`<circle class="draw" cx="${x}" cy="${y}" r="27" fill="none" stroke="#E5383B" stroke-width="10"/>`).join(''))});
+[0.82,0.9,0.98].forEach(f=>SFX.push({t:T(3,f),k:'pop'}));
+E({x:540,y:900,w:300,h:300,t:C[4][0],a:'slam',d:0.25,z:6,shake:14,html:`<div style="position:relative;width:100%;height:100%">${disc('#2A9D8F')}<div style="position:absolute;inset:40px">${repeatSVG(220,'#fff')}</div></div>`});
+E({x:540,y:1110,w:460,h:120,t:C[4][0]+0.15,a:'pop',z:7,r:-3,html:'<div class="tag" style="font-size:84px;background:#FFD23F;color:#141414">تكرر الطلب</div>'});
+// ---- pattern break: dark "market signal" ----
+scene(C[5][0]-0.15,'#141414',1,true);FLASH.push({t:C[5][0]-0.1,a:0.45,c:'#4C9A5B'});GLITCH.push({t:C[5][0]-0.12});
+E({x:540,y:520,w:900,h:190,t:C[5][0]+0.05,a:'slam',d:0.25,shake:18,sfx:'boom',sh:false,html:'<div class="h" style="font-size:170px;color:#FFD23F">إشارة سوق</div>'});
+[120,220,330,450].forEach((h,i)=>E({x:330+i*140,y:1150-h/2,w:110,h,t:C[5][0]+0.12+i*0.09,a:'slideUp',d:0.4,sfx:i?null:'swoosh',float:false,html:`<div style="width:100%;height:100%;background:${i==3?'#FFD23F':'#4C9A5B'};border-radius:14px;border:8px solid #fff;box-sizing:border-box"></div>`}));
+[0,1,2,3].forEach(i=>SFX.push({t:C[5][0]+0.3+i*0.09,k:'pop'}));
+E({x:540,y:1265,w:420,h:120,t:C[6][0],a:'pop',sh:false,html:'<div class="h" style="font-size:100px;color:#8D99AE">مجاملة</div>'});
+E({x:540,y:1265,w:440,h:60,t:C[6][0]+0.2,a:'draw',d:0.25,z:3,sh:false,html:svg(440,60,'<path class="draw" d="M8,40 C140,20 300,44 432,18" stroke="#E5383B" stroke-width="16" fill="none" stroke-linecap="round"/>')});
+// ===================== Q2 =====================
+scene(C[7][0]-0.27,'#F2E3D5',-1);
+QH(7,'2','السؤال الثاني');
+const o12=C[12][0]-0.1;
+E({x:540,y:1010,w:200,h:520,t:C[8][0],a:'pop',d:0.4,z:1,out:o12,float:false,html:svg(200,520,`<g ${STK}><rect x="88" y="10" width="24" height="470" fill="#141414"/><path d="M30,520 L170,520 L140,470 L60,470 Z" fill="#141414"/><circle cx="100" cy="14" r="22" fill="#E5383B"/></g>`)});
+const pan=(cls,icon,label,col)=>`<div class="pan ${cls}" style="position:absolute;${cls=='pl'?'left':'right'}:-80px;top:30px;width:280px;transform-origin:50% 0;transform:scale(0)">
+ <svg width="280" height="84" style="display:block"><path d="M140,0 L30,84 M140,0 L250,84" stroke="#141414" stroke-width="6" fill="none"/></svg>
+ <div style="position:relative;width:280px;height:250px;background:#FBF8F0;border:8px solid #fff;border-radius:16px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-shadow:0 12px 14px rgba(0,0,0,.25)">${icon}<div class="h" style="font-size:52px;color:${col}">${label}</div>
+ ${cls=='pl'?[0,1,2].map(i=>`<div class="cn${i}" style="position:absolute;top:-52px;left:${40+i*62}px;transform:translateY(-900px)">${coinSVG(84)}</div>`).join(''):''}</div></div>`;
+E({x:540,y:760,w:820,h:60,t:C[8][0]+0.05,a:'pop',d:0.35,z:3,sh:false,out:o12,float:false,html:`<div class="beam" style="position:absolute;inset:0;transform-origin:50% 50%"><div style="position:absolute;left:0;right:0;top:18px;height:24px;background:#141414;border-radius:12px"></div>
+ ${pan('pl',boltSVG(120),'مشكلة بتوجع','#E5383B')}${pan('pr',starSVG(120),'شي حلو','#3D5A80')}</div>`,
+ upd(t,w){const tl=T(10,0.5);let a=-9*eOutBack((t-tl)/0.6,1.6);if(t<tl)a=0;if(t>C[9][0]&&t<tl)a=3*Math.exp(-(t-C[9][0])*3)*Math.sin((t-C[9][0])*9);
+  w.querySelector('.beam').style.transform=`rotate(${a.toFixed(2)}deg)`;
+  const pl=w.querySelector('.pl'),pr=w.querySelector('.pr');
+  pl.style.transform=`rotate(${(-a).toFixed(2)}deg) scale(${Math.max(0,eOutBack((t-T(8,0.35))/0.35)).toFixed(3)})`;
+  pr.style.transform=`rotate(${(-a).toFixed(2)}deg) scale(${t<C[9][0]?0:eOutBack((t-C[9][0])/0.35).toFixed(3)})`;
+  const g=eOutCubic((t-C[11][0]-0.1)/0.5);pr.style.filter=t>C[11][0]+0.1?`grayscale(${g}) opacity(${1-0.45*g})`:'';
+  [0,1,2].forEach(i=>{const u=(t-T(10,0.08+i*0.12))/0.5;w.querySelector('.cn'+i).style.transform=`translateY(${(-(1-eBounce(u))*900).toFixed(1)}px)`});}});
+SFX.push({t:C[8][0]+0.05,k:'swoosh'});SFX.push({t:C[9][0],k:'pop'});[0,1,2].forEach(i=>SFX.push({t:T(10,0.08+i*0.12),k:'coin'}));SFX.push({t:T(10,0.5),k:'thud',d:0.2});
+E({x:290,y:640,w:400,h:110,t:T(10,0.6),a:'pop',r:-5,z:5,out:o12,html:'<div class="tag" style="font-size:70px;background:#4C9A5B;color:#fff">الناس بتدفع</div>'});
+E({x:540,y:570,w:360,h:140,t:C[12][0],a:'slam',d:0.25,shake:16,z:5,sfx:'boom',html:'<div class="tag" style="font-size:96px;background:#E5383B;color:#fff">مثال</div>'});FLASH.push({t:C[12][0],a:0.4});
+E({x:540,y:820,w:880,h:290,t:C[13][0],a:'slideR',d:0.45,r:-1.5,html:card(`<div style="position:absolute;right:36px;top:36px">${docSVG(160,210,'#2A9D8F')}</div>
+ <div class="c" style="position:absolute;right:226px;left:30px;top:44px;font-size:52px;line-height:1.35">"ساعدني أعمل سيرة ذاتية<br>تجيب <span style="background:#FFD23F;padding:0 8px">مقابلات</span>"</div>`,torn(880,290,5),'#FFFDF6')});
+E({x:320,y:985,w:440,h:150,t:C[14][0],a:'stamp',d:0.22,r:-7,z:6,shake:16,html:'<div class="h" style="font-size:92px;color:#4C9A5B;border:10px solid #4C9A5B;border-radius:16px;padding:20px 22px 4px;background:rgba(255,255,255,.8)">بتنباع أكتر</div>'});
+E({x:540,y:1200,w:720,h:190,t:T(14,0.42),a:'slideL',d:0.45,r:2,html:card(`<div style="position:absolute;right:36px;top:26px">${brushSVG(136)}</div>
+ <div class="c" style="position:absolute;right:196px;left:30px;top:56px;font-size:50px;color:#8D99AE">"علمني التصميم"</div>`,torn(720,190,5),'#EDEAE4')});
+// ===================== Q3 (drops from top) =====================
+scene(C[15][0]-0.27,'#DDEBE7',-1,true);
+QH(15,'3','السؤال الثالث');
+const o17=C[17][0]-0.02;
+E({x:540,y:850,w:520,h:520,t:C[16][0]+0.05,a:'pop',d:0.4,out:o17,html:`<div style="position:relative;width:100%;height:100%">${svg(520,520,`<circle cx="260" cy="260" r="232" fill="#FBF8F0" stroke="#fff" stroke-width="16"/><circle cx="260" cy="260" r="200" fill="none" stroke="#D8DEE6" stroke-width="44"/>
+ <circle class="ring" cx="260" cy="260" r="200" fill="none" stroke="#E5383B" stroke-width="44" stroke-linecap="round" transform="rotate(-90 260 260)" pathLength="1" style="stroke-dasharray:0 1"/>`)}
+ <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><div class="h cnt" style="font-size:230px;padding-top:30px">0</div><div class="h" style="font-size:70px;margin-top:-10px">دقيقة</div></div></div>`,
+ upd(t,w){const p=eInOut((t-T(16,0.12))/(T(16,0.5)-T(16,0.12)));w.querySelector('.ring').style.strokeDasharray=`${p.toFixed(4)} 1`;w.querySelector('.cnt').textContent=Math.round(30*p)}});
+SFX.push({t:T(16,0.12),k:'tick',d:T(16,0.5)-T(16,0.12)});PUNCH.push({t:T(16,0.5),amp:0.04});
+E({x:850,y:630,w:300,h:110,t:T(16,0.52),a:'pop',r:8,z:3,out:o17,html:'<div class="tag" style="font-size:72px;background:#FFD23F;color:#141414">أو أقل</div>'});
+E({x:240,y:1200,w:200,h:200,t:T(16,0.66),a:'pop',z:3,out:o17,html:bookSVG(200)});
+E({x:240,y:1200,w:230,h:230,t:T(16,0.76),a:'draw',d:0.28,z:4,sh:false,out:o17,html:xx(230)});
+E({x:650,y:1210,w:480,h:104,t:T(16,0.82),a:'pop',z:3,out:o17,html:'<div class="tag" style="font-size:62px;background:#141414;color:#fff">بلا تعلم جديد</div>'});
+const tg=C[17][0]+0.4;
+E({x:540,y:800,w:560,h:240,t:C[17][0]+0.05,a:'pop',d:0.35,html:`<div class="trk" style="position:relative;width:100%;height:100%;border-radius:120px;background:#B8BEC7;border:10px solid #fff;box-sizing:border-box">
+ <div class="h lbl" style="position:absolute;left:50px;top:40px;font-size:140px;color:#fff;opacity:0">نعم</div><div class="knob" style="position:absolute;left:14px;top:14px;width:192px;height:192px;border-radius:50%;background:#fff;box-shadow:0 6px 10px rgba(0,0,0,.3)"></div></div>`,
+ upd(t,w){const p=t<tg?0:eOutBack((t-tg)/0.35,1.4);w.querySelector('.knob').style.transform=`translateX(${(p*320).toFixed(1)}px)`;w.querySelector('.trk').style.background=p>0.4?'#4C9A5B':'#B8BEC7';w.querySelector('.lbl').style.opacity=clamp(p)}});
+SFX.push({t:tg-0.15,k:'ding'});FLASH.push({t:tg+0.05,a:0.4,c:'#4C9A5B'});PUNCH.push({t:tg,amp:0.05});SHAKES.push({t:tg+0.05,amp:12});
+E({x:540,y:1090,w:230,h:230,t:C[18][0],a:'drop',d:0.55,z:5,html:boxSVG(230)});
+E({x:540,y:1265,w:660,h:112,t:T(18,0.4),a:'pop',r:-2,z:6,html:'<div class="tag" style="font-size:72px;background:#E5383B;color:#fff">خدمة جاهزة للبيع</div>'});
+// ===================== SUMMARY (dark) =====================
+scene(C[19][0]-0.27,'#141414',1);GLITCH.push({t:C[19][0]-0.2});
+E({x:540,y:360,w:540,h:160,t:C[19][0],a:'slam',d:0.25,shake:18,sfx:'boom',html:'<div class="tag" style="font-size:116px;background:#FFD23F;color:#141414">الخلاصة</div>'});FLASH.push({t:C[19][0],a:0.45});
+E({x:540,y:560,w:940,h:110,t:C[20][0],a:'pop',sh:false,html:'<div class="h" style="font-size:80px;color:#fff">مهارتك القابلة للبيع =</div>'});
+[['طلب متكرر','#2A9D8F',repeatSVG(150,'#fff'),'#fff',0],['مشكلة مؤلمة','#E5383B',boltSVG(150).replace('#E5383B','#FFD23F'),'#fff',0.36],['نتيجة سريعة','#FFD23F',watchSVG(130),'#141414',0.7]].forEach(([s,col,ic,tc,f],i)=>{
+  E({x:870-i*330,y:860,w:290,h:340,t:T(21,f),a:'drop',d:0.5,r:(i-1)*-3,html:`<div style="width:100%;height:100%;background:${col};border:10px solid #fff;border-radius:26px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px">${ic}<div class="h" style="font-size:54px;color:${tc}">${s}</div></div>`});
+  if(i<2)E({x:705-i*330,y:860,w:80,h:100,t:T(21,f+0.22),a:'pop',z:3,sh:false,html:'<div class="h" style="font-size:120px;color:#fff">+</div>'});});
+E({x:540,y:1190,w:640,h:160,t:C[21][1]-0.2,a:'slam',d:0.25,r:-3,z:5,shake:20,sfx:'boom',html:'<div class="tag" style="font-size:104px;background:#4C9A5B;color:#fff;padding-top:24px">= مهارة بتنباع</div>'});
+FLASH.push({t:C[21][1]-0.2,a:0.35,c:'#FFD23F'});PUNCH.push({t:C[21][1]-0.2,amp:0.05});
+// ===================== CTA (yellow, rises from bottom) =====================
+scene(C[22][0]-0.27,'#FFD23F',1,true);
+const o24=C[24][0]-0.05;
+E({x:540,y:340,w:700,h:150,t:C[22][0],a:'slam',d:0.25,sh:false,out:o24,sfx:'pop',html:'<div class="h" style="font-size:140px">إذا بدك...</div>'});
+E({x:540,y:540,w:640,h:120,t:C[23][0],a:'pop',r:-2,out:o24,html:'<div class="tag" style="font-size:76px;background:#141414;color:#fff">اكتب بالتعليقات</div>'});
+E({x:540,y:800,w:940,h:250,t:C[23][0]-0.05,a:'slideUp',d:0.45,out:o24,html:`<div style="width:100%;height:100%;background:#fff;border:9px solid #141414;border-radius:125px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:22px;direction:rtl;position:relative">
+ <div class="h ty" style="font-size:150px;padding-top:26px;min-width:10px"></div><div class="caret" style="width:9px;height:130px;background:#E5383B"></div>
+ <div style="position:absolute;left:26px;top:26px;width:180px;height:180px;border-radius:50%;background:#E5383B;display:flex;align-items:center;justify-content:center">${svg(90,90,'<path d="M78,45 L14,45 M40,16 L12,45 L40,74" stroke="#fff" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round"/>')}</div></div>`,text:'مهارتي',typeT:T(23,0.32)});
+PUNCH.push({t:T(23,0.95),amp:0.05});SFX.push({t:C[23][1]-0.05,k:'ping'});
+E({x:540,y:790,w:800,h:900,t:C[24][0],a:'slideUp',d:0.5,r:-1.5,z:2,html:card(`<div style="position:absolute;top:0;left:0;right:0;height:112px;background:#141414;display:flex;align-items:center;justify-content:center"><div class="h" style="font-size:68px;color:#FFD23F;padding-top:10px">ورقة تقييم مهارتك</div></div>
+ ${['طلب متكرر؟','مشكلة مؤلمة؟','نتيجة سريعة؟'].map((s,i)=>`<div style="position:absolute;right:50px;top:${150+i*78}px;display:flex;align-items:center;gap:20px;direction:rtl"><div style="width:46px;height:46px;border:6px solid #141414;border-radius:8px;box-sizing:border-box"></div><div class="c" style="font-size:46px">${s}</div></div>`).join('')}
+ <div style="position:absolute;left:50px;right:50px;top:400px;height:5px;background:#141414;opacity:.2"></div><div class="h" style="position:absolute;left:0;right:0;top:420px;font-size:50px;color:#3D5A80">التقييم من 10</div>`,torn(800,900,5),'#FFFDF6')});
+[0,1,2].forEach(i=>{E({x:867,y:513+i*78,w:60,h:60,t:T(24,0.3+i*0.07),a:'draw',d:0.18,z:4,sh:false,html:chk(60)});SFX.push({t:T(24,0.3+i*0.07),k:'pop'})});
+[[0.62,8,'#2A9D8F'],[0.72,6,'#FFD23F'],[0.82,9,'#E5383B']].forEach(([f,v,col],i)=>E({x:540,y:860+i*76,w:640,h:52,t:T(24,f),a:'wipe',d:0.35,z:3,sh:false,html:`<div style="display:flex;align-items:center;gap:16px;direction:rtl;height:100%"><div style="flex:0 0 ${v*50}px;height:38px;background:${col};border-radius:8px;border:4px solid #141414;box-sizing:border-box"></div><div class="h" style="font-size:46px;padding-top:6px">${v}/10</div></div>`}));
+['خدمة ١','خدمة ٢','خدمة ٣'].forEach((s,i)=>E({x:790-i*250,y:1150,w:220,h:150,t:C[25][0]+0.1+i*0.22,a:'drop',d:0.5,r:(1-i)*7,z:5,html:card(`<div class="h" style="font-size:58px;padding-top:50px">${s}</div>`,torn(220,150,4),['#BEE3DB','#FFE6A7','#F8C8C8'][i])}));
+E({x:540,y:1285,w:620,h:170,t:C[26][0]+0.2,a:'stamp',d:0.22,r:-5,z:9,shake:22,html:'<div class="h" style="font-size:104px;color:#E5383B;border:12px solid #E5383B;border-radius:20px;padding:26px 30px 4px;background:rgba(255,255,255,.85)">مو من الصفر</div>'});
+PUNCH.push({t:C[26][0]+0.4,amp:0.05});
+// ===================== HUD: 3-segment progress =====================
+cur=hud;
+const QS=[[C[2][0],C[7][0]],[C[7][0],C[15][0]],[C[15][0],C[19][0]-0.3]];
+E({x:540,y:205,w:720,h:36,t:C[2][0],a:'pop',sh:false,float:false,sfx:null,out:C[19][0]-0.3,outKind:'fade',html:`<div style="display:flex;gap:14px;height:100%;direction:rtl">${[0,1,2].map(i=>`<div style="flex:1;border:5px solid #141414;border-radius:18px;background:#fff;overflow:hidden;box-sizing:border-box;box-shadow:0 4px 8px rgba(0,0,0,.25)"><div class="f${i}" style="height:100%;width:0;background:#E5383B;float:right"></div></div>`).join('')}</div>`,
+ upd(t,w){QS.forEach(([a,b],i)=>{w.querySelector('.f'+i).style.width=(clamp((t-a)/(b-a))*100).toFixed(1)+'%'})}});
+TILT.push([0,0],[C[1][0]-0.18,-2],[C[2][0]-0.3,1.2],[C[5][0]-0.15,-1.5],[C[7][0]-0.27,1],[C[12][0],-1],[C[15][0]-0.27,1.3],[C[17][0],0],[C[19][0]-0.27,-1.2],[C[22][0]-0.27,1],[C[24][0],-0.8]);
+}
+// ---------------- captions ----------------
+const CAPS=C.map((c,i)=>{const ws=TXT[i].split(' ');const tot=ws.reduce((a,w)=>a+w.length+2,0);let t=c[0];
+  return {t0:c[0],t1:c[1],words:ws.map(w=>{const d=(c[1]-c[0])*(w.length+2)/tot;const o={w,t0:t,t1:t+d};t+=d;return o})}});
+// ---------------- render ----------------
+const capEl=document.getElementById('cap'),grain=document.getElementById('grain'),flash=document.getElementById('flash'),scan=document.getElementById('scan');let capIdx=-1;
+function animEl(e,t){
+  const u=(t-e.t)/e.d;const w=e.el;let tx=0,ty=0,sc=1,op=1,rot=e.r,clip='none',filt='';
+  if(t<e.t&&!(e.a==='draw'||e.a==='wipe')){w.style.visibility='hidden';return}
+  w.style.visibility='visible';
+  switch(e.a){
+    case 'pop':sc=eOutBack(u);op=clamp(u*4);break;
+    case 'grow':sc=eOutBack(u,2.6);ty=(1-eOutCubic(u))*120;op=clamp(u*4);break;
+    case 'drop':ty=-(1-eBounce(u))*900;rot=e.r+(1-clamp(u))*12;break;
+    case 'slideL':tx=-(1-eOutBack(u,1.2))*1300;rot=e.r-(1-clamp(u))*8;break;
+    case 'slideR':tx=(1-eOutBack(u,1.2))*1300;rot=e.r+(1-clamp(u))*8;break;
+    case 'slideUp':ty=(1-eOutBack(u,1.1))*1500;rot=e.r+(1-clamp(u))*6;break;
+    case 'stamp':sc=2.6-1.6*eOutCubic(u);op=clamp(u*3);break;
+    case 'slam':{const f=e.from||1.9;sc=f-(f-1)*eOutBack(u,2.2);}op=e.t<0.05?1:clamp(u*5);break;
+    case 'wipe':{const p=eOutCubic(u);clip=t<e.t?'inset(0 0 0 100%)':`inset(-20% -20% -20% ${(1-p)*100}%)`;break}
+    case 'draw':{const p=eInOut(u);e.paths.forEach((pa,k)=>{const n=e.paths.length;const q=clamp(p*n-k);pa.style.strokeDashoffset=String(1-q)});break}
+  }
+  if(e.text){const n=Math.max(0,Math.min(e.text.length,Math.floor((t-e.typeT)/0.13)+1));e.tn.textContent=t<e.typeT?'':e.text.slice(0,n);
+    const cr=w.querySelector('.caret');cr.style.opacity=(Math.floor(t*3)%2||t<e.typeT+0.9)?1:0;}
+  if(e.timer!==undefined){const s=Math.max(0,t-e.timer);e.tm.textContent='0:'+String(Math.floor(s)).padStart(2,'0');
+    const pie=w.querySelector('.pie');pie.style.strokeDasharray=`${(s%60)/60} 1`;}
+  if(e.pie){const pie=w.querySelector('.pie');const v=e.pie.to*eInOut((t-e.pie.t)/e.pie.d);pie.style.strokeDasharray=`${v} 1`;}
+  if(e.dim&&t>e.dim.t){const v=eOutCubic((t-e.dim.t)/0.5);filt=`grayscale(${v}) brightness(${1-0.25*v})`;sc*=1-0.12*v;ty+=40*v;rot+=6*v;}
+  if(e.float&&u>1){const f=t-e.t;ty+=Math.sin(f*1.6+e.ph)*3;rot+=Math.sin(f*1.1+e.ph)*0.5}
+  if(e.out!==undefined&&t>e.out){const v=clamp((t-e.out)/0.3);if(e.outKind==='fade'){op*=1-v;sc*=1-0.3*v}else{ty-=eInOut(v)*260;op*=1-v;}}
+  if(e.upd)e.upd(t,w,e);
+  w.style.transform=`translate(${tx.toFixed(1)}px,${ty.toFixed(1)}px) rotate(${rot.toFixed(2)}deg) scale(${sc.toFixed(4)})`;
+  w.style.opacity=op;w.style.clipPath=clip;if(filt||e.dim)w.style.filter=(e.sh===false?'':'drop-shadow(0 14px 14px rgba(0,0,0,.28)) ')+filt;
+}
+function renderAt(t){
+  scenes.forEach((s,i)=>{const nx=scenes[i+1];const vis=t>=s.t0-0.001&&(!nx||t<nx.t0+0.6);s.d.style.display=vis?'':'none';
+    if(!vis)return;const p=i===0?1:eOutCubic((t-s.t0)/0.5);
+    const x=(1-p)*1250*s.from,r=(1-p)*6*s.from;s.d.style.transform=s.v?`translate(0,${((1-p)*2150*s.from).toFixed(1)}px) rotate(${(r*0.5).toFixed(2)}deg)`:`translate(${x.toFixed(1)}px,0) rotate(${r.toFixed(2)}deg)`;s.d.style.zIndex=i;
+    if(nx&&t>=nx.t0){const q=eOutCubic((t-nx.t0)/0.5);s.d.style.transform=(nx.v?`translate(0,${(-q*160*nx.from).toFixed(1)}px)`:`translate(${(-q*160*nx.from).toFixed(1)}px,0)`)+` scale(${(1-0.04*q).toFixed(4)})`;s.d.style.filter=`brightness(${(1-0.25*q).toFixed(3)})`}else s.d.style.filter='';
+    s.els.forEach(e=>animEl(e,t));});
+  hud.els.forEach(e=>animEl(e,t));
+  let sc=1.035+0.012*Math.sin(t*0.45),tx=10*Math.sin(t*0.37),ty=8*Math.sin(t*0.29+1),rot=0.35*Math.sin(t*0.31);
+  // hook: start punched-in and settle out
+  if(t<1.2)sc+=0.06*Math.pow(1-t/1.2,2);
+  {let i=0;while(i+1<TILT.length&&t>=TILT[i+1][0])i++;if(TILT.length){const pv=i?TILT[i-1][1]:TILT[0][1];rot+=pv+(TILT[i][1]-pv)*eInOut((t-TILT[i][0])/0.5)}}
+  PUNCH.forEach(p=>{const d=t-p.t;if(d>-0.2&&d<1.6){sc+=p.amp*(d<0?eInOut((d+0.2)/0.2):Math.exp(-d*1.6))}});
+  SHAKES.forEach(s=>{const d=t-s.t;if(d>=0&&d<0.5){const a=s.amp*Math.exp(-d*9);tx+=a*Math.sin(d*90);ty+=a*Math.cos(d*77);rot+=a*0.04*Math.sin(d*60)}});
+  let gl=0;GLITCH.forEach(g=>{const d=t-g.t;if(d>=0&&d<0.16){gl=1;tx+=((Math.floor(d*60)%2)?1:-1)*28*(1-d/0.16)}});
+  stage.style.transform=`translate(${tx.toFixed(1)}px,${ty.toFixed(1)}px) rotate(${rot.toFixed(3)}deg) scale(${sc.toFixed(4)})`;
+  stage.style.filter=gl?'contrast(1.35) saturate(1.5) hue-rotate(-8deg)':'';scan.style.opacity=gl?0.9:0;
+  let fa=0,fc='#fff';FLASH.forEach(f=>{const d=t-f.t;if(d>=0&&d<0.25){const v=f.a*(1-d/0.25);if(v>fa){fa=v;fc=f.c||'#fff'}}});flash.style.opacity=fa;flash.style.background=fc;
+  grain.style.backgroundImage=`url(tex/grain${Math.floor(t*15)%4}.png)`;
+  let ci=-1;CAPS.forEach((c,i)=>{if(t>=c.t0-0.05)ci=i});if(ci===CAPS.length-1&&t>CAPS[ci].t1+1.2)ci=-1;
+  if(ci!==capIdx){capIdx=ci;capEl.innerHTML='';if(ci>=0)CAPS[ci].words.forEach(o=>{const sp=document.createElement('span');sp.textContent=o.w;o.el=sp;capEl.appendChild(sp)})}
+  let anyW=0;if(ci>=0)CAPS[ci].words.forEach(o=>{const st=t>=o.t0?(t<o.t1?2:1):0;const key=KEY.some(k=>o.w.includes(k));const ap=clamp((t-o.t0+0.06)/0.12);
+    o.el.style.opacity=st===0?0:ap;if(st)anyW=1;o.el.style.color=(st===2||key)?'#FFD23F':'#fff';o.el.style.transform=`translateY(${((1-ap)*12).toFixed(1)}px)`;});
+  capEl.style.visibility=anyW?'visible':'hidden';
+}
+capEl.style.opacity=1;window.TIMELINE=()=>({sfx:SFX,scenes:scenes.map(s=>s.t0)});
+window.ready=Promise.all([document.fonts.load('96px Lalezar','مصدر'),document.fonts.load('800 60px Cairo','مصدر')]).then(()=>document.fonts.ready)
+ .then(()=>Promise.all(['tex/paper.png','tex/grain0.png','tex/grain1.png','tex/grain2.png','tex/grain3.png'].map(src=>new Promise(r=>{const i=new Image();i.onload=r;i.onerror=r;i.src=src}))))
+ .then(()=>{build();renderAt(0);return true});
+window.renderAt=renderAt;
+</script></body></html>
